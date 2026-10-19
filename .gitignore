@@ -9,11 +9,13 @@ CMakeFiles/
 cmake_install.cmake
 Makefile
 compile_commands.json
-*.cmake
+# Do NOT add *.cmake here: framework/cmake/*.cmake and the third_party CMake modules are
+# source files that the build needs. Generated .cmake files only live in the build dirs above.
 
 # Compiled binaries and objects
+# (No *.obj or *.bin: those are also 3D model formats (Wavefront OBJ, glTF buffers) that we
+#  load from resources/. Compiler object files only appear in the build dirs above.)
 *.o
-*.obj
 *.a
 *.so
 *.dylib
@@ -21,11 +23,11 @@ compile_commands.json
 *.exe
 *.out
 *.app
-*.bin
 
 # IDE and editor files
 .idea/
 .vscode/
+imgui.ini
 *.swp
 *.swo
 *~
@@ -33,3 +35,6 @@ compile_commands.json
 # OS metadata
 .DS_Store
 Thumbs.db
+
+# Planning notes (not part of hand-in)
+/battle-plan.html
