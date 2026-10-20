@@ -7,7 +7,6 @@ src/
   features/         YOUR CODE. One .h/.cpp pair per feature, written by its owner.
 shaders/            All GLSL. Flat folder (CMake copies shaders/*.glsl), so prefix feature
                     shaders with the feature name: bezier_vert.glsl, outline_frag.glsl, ...
-docs/               Plan, contributions, references, screenshots for the report.
 ```
 
 ## Rules
