@@ -1,9 +1,7 @@
 cmake_minimum_required(VERSION 3.14 FATAL_ERROR)
 project(ComputerGraphics C CXX)
 
-# Set this before including framework such that it knows to use the OpenGL4.5 version of GLAD
 if (EXISTS "${CMAKE_CURRENT_LIST_DIR}/framework")
-	# Create framework library and include CMake scripts (compiler warnings, sanitizers and static analyzers).
 	add_subdirectory("framework")
 elseif(PROJECT_IS_TOP_LEVEL)
 	add_subdirectory("../../../framework/" "${CMAKE_CURRENT_BINARY_DIR}/framework/")
@@ -12,15 +10,13 @@ endif()
 add_executable(Master_TechDemo
     "src/application.cpp"
 
-    # Scaffolding (src/core): shared infrastructure, not graded features.
+    # core
     "src/core/camera.cpp"
     "src/core/mesh.cpp"
-    "src/core/primitives.cpp"
     "src/core/texture.cpp"
 
-    # Features (src/features): one .cpp per feature, add yours here.
+    # features
 )
-# Lets every file include "core/mesh.h" or "features/bezier.h" the same way.
 target_include_directories(Master_TechDemo PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src")
 
 target_compile_definitions(Master_TechDemo PRIVATE RESOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/")
@@ -29,20 +25,15 @@ target_link_libraries(Master_TechDemo PRIVATE CGFramework)
 enable_sanitizers(Master_TechDemo)
 set_project_warnings(Master_TechDemo)
 
-# Copy all files in the resources folder to the build directory after every successful build.
+# copy resources
 add_custom_command(TARGET Master_TechDemo POST_BUILD
 	COMMAND ${CMAKE_COMMAND} -E copy_directory
 	"${CMAKE_CURRENT_LIST_DIR}/resources/" "$<TARGET_FILE_DIR:Master_TechDemo>/resources/")
 
-# We would like to copy the files when they changed. Even if no *.cpp files were modified (and
-# thus no build is triggered). We tell CMake that the executable depends on the shader files in
-# the build directory. We also tell it how to generate those files (by copying them from the
-# shaders folder in this directory). The gather all glsl files in the shaders folder when CMake
-# is configured. So if you were to add a shader file then you need to configure CMake again.
+# copy shaders (reconfigure CMake after adding a .glsl)
 file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/shaders/")
 
 set(Master_TechDemo_shader_copies "")
-# List all *.glsl files in the shaders folder
 file(GLOB Master_TechDemo_shader_sources "${CMAKE_CURRENT_LIST_DIR}/shaders/*.glsl")
 foreach (shader_file IN LISTS Master_TechDemo_shader_sources)
 	get_filename_component(file_name ${shader_file} NAME)

@@ -1,5 +1,3 @@
-// SCAFFOLDING. Source: course starter + Mihai's tangent computation (Phase 1). See mesh.h.
-
 #include "mesh.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -13,30 +11,26 @@ DISABLE_WARNINGS_POP()
 #include <vector>
 
 namespace {
-// What one vertex looks like in the GPU buffer: the framework's Vertex plus a tangent for normal mapping.
 struct GPUVertex {
     glm::vec3 position;
     glm::vec3 normal;
     glm::vec2 texCoord;
-    glm::vec4 tangent; // xyz: direction of increasing u, w: +1 or -1 handedness.
+    glm::vec4 tangent;
 };
 
-// Any unit vector perpendicular to n (used when a vertex has no usable UVs).
 glm::vec3 anyPerpendicular(const glm::vec3& n)
 {
     const glm::vec3 axis = std::abs(n.x) < 0.9f ? glm::vec3(1, 0, 0) : glm::vec3(0, 1, 0);
     return glm::normalize(glm::cross(axis, n));
 }
 
-// One tangent per vertex, for normal mapping. Per triangle: solve the edges e1 = du1*T + dv1*B and
-// e2 = du2*T + dv2*B for T and B, accumulate per vertex, then Gram-Schmidt T against the normal.
-// w stores the handedness so the shader can rebuild B = cross(N, T) * w on mirrored UVs.
 std::vector<glm::vec4> computeTangents(const Mesh& mesh)
 {
     const size_t count = mesh.vertices.size();
     std::vector<glm::vec3> tangentSums(count, glm::vec3(0.0f));
     std::vector<glm::vec3> bitangentSums(count, glm::vec3(0.0f));
 
+    // tangent per triangle, summed per vertex
     for (const glm::uvec3& triangle : mesh.triangles) {
         const Vertex& v0 = mesh.vertices[triangle.x];
         const Vertex& v1 = mesh.vertices[triangle.y];
@@ -47,7 +41,7 @@ std::vector<glm::vec4> computeTangents(const Mesh& mesh)
         const glm::vec2 d1 = v1.texCoord - v0.texCoord;
         const glm::vec2 d2 = v2.texCoord - v0.texCoord;
         const float det = d1.x * d2.y - d2.x * d1.y;
-        if (std::abs(det) < 1e-12f) // No UVs, or degenerate UVs: skip instead of dividing by 0.
+        if (std::abs(det) < 1e-12f)
             continue;
         const float inverseDet = 1.0f / det;
         const glm::vec3 tangent = (d2.y * e1 - d1.y * e2) * inverseDet;
@@ -59,6 +53,7 @@ std::vector<glm::vec4> computeTangents(const Mesh& mesh)
         }
     }
 
+    // orthogonalize against the normal, store handedness in w
     std::vector<glm::vec4> result(count);
     for (size_t i = 0; i < count; ++i) {
         const glm::vec3 normal = mesh.vertices[i].normal;
@@ -78,14 +73,13 @@ std::vector<glm::vec4> computeTangents(const Mesh& mesh)
 
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
 {
-    // Figure out if this mesh has texture coordinates
     m_hasTextureCoords = static_cast<bool>(cpuMesh.material.kdTexture);
 
-    // Create VAO and bind it so subsequent creations of VBO and IBO are bound to this VAO
+    // create VAO
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
 
-    // Combine each vertex with its tangent into the layout the vertex shader reads.
+    // add tangents to vertices
     const std::vector<glm::vec4> tangents = computeTangents(cpuMesh);
     std::vector<GPUVertex> gpuVertices;
     gpuVertices.reserve(cpuMesh.vertices.size());
@@ -94,17 +88,17 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
         gpuVertices.push_back(GPUVertex { v.position, v.normal, v.texCoord, tangents[i] });
     }
 
-    // Create vertex buffer object (VBO)
+    // upload vertices (VBO)
     glGenBuffers(1, &m_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
     glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(gpuVertices.size() * sizeof(GPUVertex)), gpuVertices.data(), GL_STATIC_DRAW);
 
-    // Create index buffer object (IBO)
+    // upload triangles (IBO)
     glGenBuffers(1, &m_ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(cpuMesh.triangles.size() * sizeof(decltype(cpuMesh.triangles)::value_type)), cpuMesh.triangles.data(), GL_STATIC_DRAW);
 
-    // Vertex attributes 0..3 = position, normal, texCoord, tangent (the location = ... in shader_vert.glsl).
+    // vertex layout: position, normal, texCoord, tangent
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
@@ -114,7 +108,6 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
     glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GPUVertex), (void*)offsetof(GPUVertex, texCoord));
     glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(GPUVertex), (void*)offsetof(GPUVertex, tangent));
 
-    // Each triangle has 3 vertices.
     m_numIndices = static_cast<GLsizei>(3 * cpuMesh.triangles.size());
 }
 
@@ -139,7 +132,6 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
     if (!std::filesystem::exists(filePath))
         throw MeshLoadingException(fmt::format("File {} does not exist", filePath.string().c_str()));
 
-    // Generate GPU-side meshes for all sub-meshes
     std::vector<Mesh> subMeshes = loadMesh(filePath, { .normalizeVertexPositions = normalize });
     std::vector<GPUMesh> gpuMeshes;
     for (const Mesh& mesh : subMeshes)

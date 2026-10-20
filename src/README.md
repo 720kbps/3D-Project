@@ -3,7 +3,7 @@
 ```
 src/
   application.cpp   Main loop, scene list, UI panel. Shared: edit carefully, keep it thin.
-  core/             SCAFFOLDING. Mesh, texture, camera, primitive shapes. Not graded features.
+  core/             SCAFFOLDING. Mesh, texture, camera. Not graded features.
   features/         YOUR CODE. One .h/.cpp pair per feature, written by its owner.
 shaders/            All GLSL. Flat folder (CMake copies shaders/*.glsl), so prefix feature
                     shaders with the feature name: bezier_vert.glsl, outline_frag.glsl, ...

@@ -1,7 +1,4 @@
-// SCAFFOLDING. Source: copied unchanged from exercise 4. See camera.h.
-
 #include "camera.h"
-// Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <GLFW/glfw3.h>

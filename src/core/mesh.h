@@ -1,6 +1,3 @@
-// SCAFFOLDING, not a graded feature. Source: course starter, extended by Mihai (tangents, Phase 1).
-// Only change the vertex layout here if a feature needs a new attribute.
-
 #pragma once
 
 #include <framework/disable_all_warnings.h>
@@ -18,27 +15,20 @@ struct MeshLoadingException : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-// Geometry only (positions, normals, UVs, tangents). Colours and textures are set by the caller, so one
-// mesh can be drawn with different looks, and a depth-only shader can draw it too.
 class GPUMesh {
 public:
     GPUMesh(const Mesh& cpuMesh);
-    // Cannot copy a GPU mesh because it would require reference counting of GPU resources.
     GPUMesh(const GPUMesh&) = delete;
     GPUMesh(GPUMesh&&);
     ~GPUMesh();
 
-    // Generate a number of GPU meshes from a particular model file.
-    // Multiple meshes may be generated if there are multiple sub-meshes in the file
     static std::vector<GPUMesh> loadMeshGPU(std::filesystem::path filePath, bool normalize = false);
 
-    // Cannot copy a GPU mesh because it would require reference counting of GPU resources.
     GPUMesh& operator=(const GPUMesh&) = delete;
     GPUMesh& operator=(GPUMesh&&);
 
     bool hasTextureCoords() const;
 
-    // Bind VAO and call glDrawElements. The caller binds the shader and sets its uniforms first.
     void draw() const;
 
 private:

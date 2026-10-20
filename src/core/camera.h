@@ -1,9 +1,4 @@
-// SCAFFOLDING, not a graded feature. Source: copied unchanged from exercise 4.
-// Free-fly camera (WASD, R/F, hold left mouse to look). The real camera system (task 2.1)
-// can replace or extend this; until then, don't edit it.
-
 #pragma once
-// Suppress warnings in third-party code.
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <glm/mat4x4.hpp>
