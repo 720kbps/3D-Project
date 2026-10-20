@@ -1,26 +1,27 @@
 #include "mesh.h"
+#include "tangents.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <fmt/format.h>
+#include <glm/vec4.hpp>
 DISABLE_WARNINGS_POP()
 #include <iostream>
 #include <vector>
 
-GPUMaterial::GPUMaterial(const Material& material) :
-    kd(material.kd),
-    ks(material.ks),
-    shininess(material.shininess),
-    transparency(material.transparency)
-{}
+namespace {
+// What one vertex looks like in the GPU buffer: the framework's Vertex plus a tangent for normal mapping.
+// A separate struct (instead of adding a field to the framework's Vertex) because the framework's OBJ
+// loader compares whole Vertex values to merge duplicates, and has no tangent to fill in.
+struct GPUVertex {
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec2 texCoord;
+    glm::vec4 tangent; // xyz: direction of increasing u; w: +1 or -1 handedness (see tangents.h).
+};
+}
 
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
 {
-    // Create uniform buffer to store mesh material (https://learnopengl.com/Advanced-OpenGL/Advanced-GLSL)
-    GPUMaterial gpuMaterial(cpuMesh.material);
-    glGenBuffers(1, &m_uboMaterial);
-    glBindBuffer(GL_UNIFORM_BUFFER, m_uboMaterial);
-    glBufferData(GL_UNIFORM_BUFFER, sizeof(GPUMaterial), &gpuMaterial, GL_STATIC_READ);
-
     // Figure out if this mesh has texture coordinates
     m_hasTextureCoords = static_cast<bool>(cpuMesh.material.kdTexture);
 
@@ -28,28 +29,40 @@ GPUMesh::GPUMesh(const Mesh& cpuMesh)
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
 
+    // Combine each vertex with its tangent into the layout the vertex shader reads.
+    const std::vector<glm::vec4> tangents = computeTangents(cpuMesh);
+    std::vector<GPUVertex> gpuVertices;
+    gpuVertices.reserve(cpuMesh.vertices.size());
+    for (size_t i = 0; i < cpuMesh.vertices.size(); ++i) {
+        const Vertex& v = cpuMesh.vertices[i];
+        gpuVertices.push_back(GPUVertex { v.position, v.normal, v.texCoord, tangents[i] });
+    }
+
     // Create vertex buffer object (VBO)
     glGenBuffers(1, &m_vbo);
     glBindBuffer(GL_ARRAY_BUFFER, m_vbo);
-    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(cpuMesh.vertices.size() * sizeof(decltype(cpuMesh.vertices)::value_type)), cpuMesh.vertices.data(), GL_STATIC_DRAW);
+    glBufferData(GL_ARRAY_BUFFER, static_cast<GLsizeiptr>(gpuVertices.size() * sizeof(GPUVertex)), gpuVertices.data(), GL_STATIC_DRAW);
 
     // Create index buffer object (IBO)
     glGenBuffers(1, &m_ibo);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_ibo);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, static_cast<GLsizeiptr>(cpuMesh.triangles.size() * sizeof(decltype(cpuMesh.triangles)::value_type)), cpuMesh.triangles.data(), GL_STATIC_DRAW);
 
-    // Tell OpenGL that we will be using vertex attributes 0, 1 and 2.
+    // Tell OpenGL that we will be using vertex attributes 0, 1, 2 and 3.
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
     glEnableVertexAttribArray(2);
+    glEnableVertexAttribArray(3);
     // We tell OpenGL what each vertex looks like and how they are mapped to the shader (location = ...).
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, position));
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, normal));
-    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Vertex), (void*)offsetof(Vertex, texCoord));
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, sizeof(GPUVertex), (void*)offsetof(GPUVertex, position));
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, sizeof(GPUVertex), (void*)offsetof(GPUVertex, normal));
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(GPUVertex), (void*)offsetof(GPUVertex, texCoord));
+    glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, sizeof(GPUVertex), (void*)offsetof(GPUVertex, tangent));
     // Reuse all attributes for each instance
     glVertexAttribDivisor(0, 0);
     glVertexAttribDivisor(1, 0);
     glVertexAttribDivisor(2, 0);
+    glVertexAttribDivisor(3, 0);
 
     // Each triangle has 3 vertices.
     m_numIndices = static_cast<GLsizei>(3 * cpuMesh.triangles.size());
@@ -88,12 +101,8 @@ bool GPUMesh::hasTextureCoords() const
     return m_hasTextureCoords;
 }
 
-void GPUMesh::draw(const Shader& drawingShader)
+void GPUMesh::draw() const
 {
-    // Bind material data uniform (we assume that the uniform buffer objects is always called 'Material')
-    // Yes, we could define the binding inside the shader itself, but that would break on OpenGL versions below 4.2
-    drawingShader.bindUniformBlock("Material", 0, m_uboMaterial);
-    
     // Draw the mesh's triangles
     glBindVertexArray(m_vao);
     glDrawElements(GL_TRIANGLES, m_numIndices, GL_UNSIGNED_INT, nullptr);
@@ -107,14 +116,12 @@ void GPUMesh::moveInto(GPUMesh&& other)
     m_ibo = other.m_ibo;
     m_vbo = other.m_vbo;
     m_vao = other.m_vao;
-    m_uboMaterial = other.m_uboMaterial;
 
     other.m_numIndices = 0;
     other.m_hasTextureCoords = other.m_hasTextureCoords;
     other.m_ibo = INVALID;
     other.m_vbo = INVALID;
     other.m_vao = INVALID;
-    other.m_uboMaterial = INVALID;
 }
 
 void GPUMesh::freeGpuMemory()
@@ -125,6 +132,4 @@ void GPUMesh::freeGpuMemory()
         glDeleteBuffers(1, &m_vbo);
     if (m_ibo != INVALID)
         glDeleteBuffers(1, &m_ibo);
-    if (m_uboMaterial != INVALID)
-        glDeleteBuffers(1, &m_uboMaterial);
 }

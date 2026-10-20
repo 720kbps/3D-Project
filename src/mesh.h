@@ -15,16 +15,8 @@ struct MeshLoadingException : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-// Alignment directives are to comply with std140 alignment requirements (https://www.khronos.org/opengl/wiki/Interface_Block_(GLSL)#Memory_layout)
-struct GPUMaterial {
-    GPUMaterial(const Material& material);
-
-    alignas(16) glm::vec3 kd{ 1.0f };
-	alignas(16) glm::vec3 ks{ 0.0f };
-	float shininess{ 1.0f };
-	float transparency{ 1.0f };
-};
-
+// Geometry only. Materials live on the scene's entities (see scene.h), so one mesh can be drawn with
+// different looks, and a shader without material uniforms (e.g. a depth-only pass) can draw it too.
 class GPUMesh {
 public:
     GPUMesh(const Mesh& cpuMesh);
@@ -43,8 +35,8 @@ public:
 
     bool hasTextureCoords() const;
 
-    // Bind VAO and call glDrawElements.
-    void draw(const Shader& drawingShader);
+    // Bind VAO and call glDrawElements. The caller binds the shader and sets its uniforms first.
+    void draw() const;
 
 private:
     void moveInto(GPUMesh&&);
@@ -58,5 +50,4 @@ private:
     GLuint m_ibo { INVALID };
     GLuint m_vbo { INVALID };
     GLuint m_vao { INVALID };
-    GLuint m_uboMaterial { INVALID };
 };

@@ -13,6 +13,14 @@ add_executable(Master_TechDemo
     "src/application.cpp"
     "src/texture.cpp"
 	"src/mesh.cpp"
+	"src/frame_clock.cpp"
+	"src/gl_check.cpp"
+	"src/screenshot.cpp"
+	"src/ui.cpp"
+	"src/scene.cpp"
+	"src/primitives.cpp"
+	"src/hdr_framebuffer.cpp"
+	"src/tangents.cpp"
 )
 
 target_compile_definitions(Master_TechDemo PRIVATE RESOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/")
