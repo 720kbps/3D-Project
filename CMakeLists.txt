@@ -11,17 +11,17 @@ endif()
 
 add_executable(Master_TechDemo
     "src/application.cpp"
-    "src/texture.cpp"
-	"src/mesh.cpp"
-	"src/frame_clock.cpp"
-	"src/gl_check.cpp"
-	"src/screenshot.cpp"
-	"src/ui.cpp"
-	"src/scene.cpp"
-	"src/primitives.cpp"
-	"src/hdr_framebuffer.cpp"
-	"src/tangents.cpp"
+
+    # Scaffolding (src/core): shared infrastructure, not graded features.
+    "src/core/camera.cpp"
+    "src/core/mesh.cpp"
+    "src/core/primitives.cpp"
+    "src/core/texture.cpp"
+
+    # Features (src/features): one .cpp per feature, add yours here.
 )
+# Lets every file include "core/mesh.h" or "features/bezier.h" the same way.
+target_include_directories(Master_TechDemo PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src")
 
 target_compile_definitions(Master_TechDemo PRIVATE RESOURCE_ROOT="${CMAKE_CURRENT_LIST_DIR}/")
 target_compile_features(Master_TechDemo PRIVATE cxx_std_20)

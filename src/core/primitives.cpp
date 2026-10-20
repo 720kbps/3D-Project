@@ -1,3 +1,5 @@
+// SCAFFOLDING. Source: Mihai (Phase 1). See primitives.h.
+
 #include "primitives.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()

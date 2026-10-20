@@ -9,8 +9,7 @@ uniform mat3 normalModelMatrix;
 layout(location = 0) in vec3 position;
 layout(location = 1) in vec3 normal;
 layout(location = 2) in vec2 texCoord;
-// xyz: direction of increasing u, w: handedness (+1 or -1). Computed per vertex in src/tangents.cpp.
-layout(location = 3) in vec4 tangent;
+layout(location = 3) in vec4 tangent; // xyz: direction of increasing u, w: handedness (see mesh.cpp).
 
 out vec3 fragPosition;
 out vec3 fragNormal;
@@ -21,11 +20,9 @@ void main()
 {
     gl_Position = mvpMatrix * vec4(position, 1);
 
-    fragPosition    = (modelMatrix * vec4(position, 1)).xyz;
-    fragNormal      = normalModelMatrix * normal;
-    fragTexCoord    = texCoord;
-    // A tangent is a direction *along* the surface, like an edge, so it transforms with the model matrix
-    // itself; only normals need the inverse transpose. With non-uniform scaling T and N then stop being
-    // exactly perpendicular, so re-orthogonalise them when building the TBN matrix in the fragment shader.
-    fragTangent     = vec4(mat3(modelMatrix) * tangent.xyz, tangent.w);
+    fragPosition = (modelMatrix * vec4(position, 1)).xyz;
+    fragNormal   = normalModelMatrix * normal;
+    fragTexCoord = texCoord;
+    // A tangent lies along the surface, so it transforms with the model matrix itself (not the inverse transpose).
+    fragTangent  = vec4(mat3(modelMatrix) * tangent.xyz, tangent.w);
 }

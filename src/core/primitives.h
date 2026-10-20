@@ -1,3 +1,6 @@
+// SCAFFOLDING, not a graded feature. Source: Mihai (Phase 1). Plane, cube, sphere, cylinder for
+// building the scene and the robot. Add new shapes here if needed.
+
 #pragma once
 #include <framework/mesh.h>
 

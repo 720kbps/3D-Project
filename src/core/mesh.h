@@ -1,3 +1,6 @@
+// SCAFFOLDING, not a graded feature. Source: course starter, extended by Mihai (tangents, Phase 1).
+// Only change the vertex layout here if a feature needs a new attribute.
+
 #pragma once
 
 #include <framework/disable_all_warnings.h>
@@ -15,8 +18,8 @@ struct MeshLoadingException : public std::runtime_error {
     using std::runtime_error::runtime_error;
 };
 
-// Geometry only. Materials live on the scene's entities (see scene.h), so one mesh can be drawn with
-// different looks, and a shader without material uniforms (e.g. a depth-only pass) can draw it too.
+// Geometry only (positions, normals, UVs, tangents). Colours and textures are set by the caller, so one
+// mesh can be drawn with different looks, and a depth-only shader can draw it too.
 class GPUMesh {
 public:
     GPUMesh(const Mesh& cpuMesh);
