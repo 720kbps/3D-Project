@@ -2,6 +2,8 @@
 #include "core/hdr_framebuffer.h"
 #include "core/mesh.h"
 #include "core/texture.h"
+#include "features/bezier_path.h"
+#include "features/chase_camera.h"
 #include "features/orbit_camera.h"
 #include "features/top_camera.h"
 #include <framework/disable_all_warnings.h>
@@ -84,6 +86,11 @@ public:
             tonemapBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/tonemap_vert.glsl");
             tonemapBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/tonemap_frag.glsl");
             m_tonemapShader = tonemapBuilder.build();
+
+            ShaderBuilder bezierBuilder;
+            bezierBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/bezier_vert.glsl");
+            bezierBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/bezier_frag.glsl");
+            m_bezierShader = bezierBuilder.build();
         } catch (const ShaderLoadingException& e) {
             std::cerr << e.what() << std::endl;
         }
@@ -105,6 +112,11 @@ public:
 
             drawUI();
 
+            // move the cart along the path
+            const glm::vec3 cartPosition = m_path.position(m_time * m_cartSpeed);
+            m_objects[m_cartIndex].modelMatrix = glm::scale(glm::translate(glm::mat4(1.0f), cartPosition), glm::vec3(0.15f));
+            m_objects[m_cartIndex].visible = m_showPath;
+
             // camera (ignore mouse while over the UI)
             m_camera.setUserInteraction(m_cameraMode == 0 && !ImGui::GetIO().WantCaptureMouse);
             m_camera.updateInput(m_deltaTime);
@@ -121,6 +133,8 @@ public:
             }
             if (m_cameraMode == 2)
                 viewMatrix = m_orbitCamera.viewMatrix();
+            if (m_cameraMode == 3)
+                viewMatrix = m_chaseCamera.viewMatrix(cartPosition);
 
             // render into the HDR framebuffer
             m_hdrFramebuffer.resize(framebufferSize);
@@ -157,6 +171,15 @@ public:
                     mesh.draw();
             }
 
+            // draw the path
+            if (m_showPath) {
+                m_bezierShader.bind();
+                const glm::mat4 pathMvp = projectionMatrix * viewMatrix;
+                glUniformMatrix4fv(m_bezierShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(pathMvp));
+                glUniform3f(m_bezierShader.getUniformLocation("color"), 1.0f, 0.4f, 0.1f);
+                m_path.draw();
+            }
+
             // tonemap to the screen
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glDisable(GL_DEPTH_TEST);
@@ -183,6 +206,9 @@ public:
             break;
         case GLFW_KEY_3:
             m_cameraMode = 2;
+            break;
+        case GLFW_KEY_4:
+            m_cameraMode = 3;
             break;
         }
     }
@@ -223,6 +249,10 @@ private:
         cubeModel = glm::scale(cubeModel, glm::vec3(0.7f));
         m_objects.push_back({ "Cube", &m_cubeMesh, cubeModel, glm::vec3(1.0f), &m_checkerTexture });
 
+        // cart riding the path
+        m_objects.push_back({ "Cart", &m_sphereMesh, glm::mat4(1.0f), srgb(0.95f, 0.95f, 0.95f) });
+        m_cartIndex = m_objects.size() - 1;
+
         // cylinder
         const glm::mat4 cylinderModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-1.3f, 0.4f, 0.8f)), glm::vec3(0.5f, 0.8f, 0.5f));
         m_objects.push_back({ "Cylinder", &m_cylinderMesh, cylinderModel, srgb(0.6f, 0.35f, 0.75f) });
@@ -235,12 +265,16 @@ private:
         ImGui::TextUnformatted("Camera: WASD move, R/F up/down, hold left mouse to look.");
         ImGui::Checkbox("Use textures", &m_useTextures);
         if (ImGui::CollapsingHeader("Camera")) {
-            const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit" };
-            ImGui::Combo("Mode", &m_cameraMode, cameraModes, 3);
+            const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
+            ImGui::Combo("Mode", &m_cameraMode, cameraModes, 4);
             if (m_cameraMode == 1)
                 ImGui::SliderFloat("Top view size", &m_topCamera.viewSize, 1.0f, 10.0f);
             if (m_cameraMode == 2)
                 ImGui::TextUnformatted("Drag to rotate, scroll to zoom.");
+        }
+        if (ImGui::CollapsingHeader("Bezier path")) {
+            ImGui::Checkbox("Show path and cart", &m_showPath);
+            ImGui::SliderFloat("Cart speed", &m_cartSpeed, 0.0f, 2.0f, "%.2f segments/s");
         }
         if (ImGui::CollapsingHeader("Time")) {
             ImGui::Text("Time: %.2f s", static_cast<double>(m_time));
@@ -253,8 +287,10 @@ private:
             ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
         }
         if (ImGui::CollapsingHeader("Objects")) {
-            for (SceneObject& object : m_objects)
-                ImGui::Checkbox(object.name.c_str(), &object.visible);
+            for (size_t i = 0; i < m_objects.size(); ++i) {
+                if (i != m_cartIndex)
+                    ImGui::Checkbox(m_objects[i].name.c_str(), &m_objects[i].visible);
+            }
         }
         ImGui::End();
     }
@@ -263,17 +299,24 @@ private:
     Camera m_camera;
     TopCamera m_topCamera;
     OrbitCamera m_orbitCamera;
+    ChaseCamera m_chaseCamera;
     int m_cameraMode { 0 };
 
     Shader m_defaultShader;
     Shader m_shadowShader;
     Shader m_tonemapShader;
+    Shader m_bezierShader;
 
     HdrFramebuffer m_hdrFramebuffer;
 
     std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
     Texture m_checkerTexture;
     std::vector<SceneObject> m_objects;
+
+    BezierPath m_path;
+    size_t m_cartIndex { 0 };
+    float m_cartSpeed { 0.3f };
+    bool m_showPath { true };
 
     bool m_useTextures { true };
     float m_lastFrameTime { 0.0f };
