@@ -17,6 +17,8 @@ add_executable(Master_TechDemo
     "src/core/texture.cpp"
 
     # features
+    "src/features/orbit_camera.cpp"
+    "src/features/top_camera.cpp"
 )
 target_include_directories(Master_TechDemo PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src")
 

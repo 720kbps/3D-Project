@@ -2,6 +2,8 @@
 #include "core/hdr_framebuffer.h"
 #include "core/mesh.h"
 #include "core/texture.h"
+#include "features/orbit_camera.h"
+#include "features/top_camera.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 // glad before glfw
@@ -57,6 +59,10 @@ public:
             else if (action == GLFW_RELEASE)
                 onMouseReleased(button, mods);
         });
+        m_window.registerScrollCallback([this](const glm::vec2& offset) {
+            if (m_cameraMode == 2 && !ImGui::GetIO().WantCaptureMouse)
+                m_orbitCamera.zoom(offset.y);
+        });
 
         glEnable(GL_TEXTURE_CUBE_MAP_SEAMLESS);
 
@@ -100,14 +106,21 @@ public:
             drawUI();
 
             // camera (ignore mouse while over the UI)
-            m_camera.setUserInteraction(!ImGui::GetIO().WantCaptureMouse);
+            m_camera.setUserInteraction(m_cameraMode == 0 && !ImGui::GetIO().WantCaptureMouse);
             m_camera.updateInput(m_deltaTime);
+            m_orbitCamera.updateInput(m_window, m_cameraMode == 2 && !ImGui::GetIO().WantCaptureMouse);
 
             // view and projection
             const glm::ivec2 framebufferSize = m_window.getFrameBufferSize();
             const float aspectRatio = framebufferSize.y > 0 ? static_cast<float>(framebufferSize.x) / static_cast<float>(framebufferSize.y) : 1.0f;
-            const glm::mat4 viewMatrix = m_camera.viewMatrix();
-            const glm::mat4 projectionMatrix = glm::perspective(glm::radians(60.0f), aspectRatio, 0.1f, 50.0f);
+            glm::mat4 viewMatrix = m_camera.viewMatrix();
+            glm::mat4 projectionMatrix = glm::perspective(glm::radians(60.0f), aspectRatio, 0.1f, 50.0f);
+            if (m_cameraMode == 1) {
+                viewMatrix = m_topCamera.viewMatrix();
+                projectionMatrix = m_topCamera.projectionMatrix(aspectRatio);
+            }
+            if (m_cameraMode == 2)
+                viewMatrix = m_orbitCamera.viewMatrix();
 
             // render into the HDR framebuffer
             m_hdrFramebuffer.resize(framebufferSize);
@@ -158,7 +171,22 @@ public:
         }
     }
 
-    void onKeyPressed(int /* key */, int /* mods */) { }
+    void onKeyPressed(int key, int /* mods */)
+    {
+        // switch camera
+        switch (key) {
+        case GLFW_KEY_1:
+            m_cameraMode = 0;
+            break;
+        case GLFW_KEY_2:
+            m_cameraMode = 1;
+            break;
+        case GLFW_KEY_3:
+            m_cameraMode = 2;
+            break;
+        }
+    }
+
     void onKeyReleased(int /* key */, int /* mods */) { }
     void onMouseMove(const glm::dvec2& /* cursorPos */) { }
     void onMouseClicked(int /* button */, int /* mods */) { }
@@ -173,6 +201,9 @@ private:
         m_sphereMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/sphere.obj");
         m_cylinderMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/cylinder.obj");
         m_dragonMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
+
+        // orbit around the dragon's middle
+        m_orbitCamera.target = glm::vec3(0.0f, 0.35f, 0.0f);
 
         // ground and dragon
         m_objects.push_back({ "Ground", &m_planeMesh, glm::scale(glm::mat4(1.0f), glm::vec3(6.0f, 1.0f, 6.0f)), srgb(0.45f, 0.47f, 0.5f) });
@@ -203,6 +234,14 @@ private:
         ImGui::Text("%.1f FPS (%.2f ms)", static_cast<double>(ImGui::GetIO().Framerate), static_cast<double>(1000.0f / ImGui::GetIO().Framerate));
         ImGui::TextUnformatted("Camera: WASD move, R/F up/down, hold left mouse to look.");
         ImGui::Checkbox("Use textures", &m_useTextures);
+        if (ImGui::CollapsingHeader("Camera")) {
+            const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit" };
+            ImGui::Combo("Mode", &m_cameraMode, cameraModes, 3);
+            if (m_cameraMode == 1)
+                ImGui::SliderFloat("Top view size", &m_topCamera.viewSize, 1.0f, 10.0f);
+            if (m_cameraMode == 2)
+                ImGui::TextUnformatted("Drag to rotate, scroll to zoom.");
+        }
         if (ImGui::CollapsingHeader("Time")) {
             ImGui::Text("Time: %.2f s", static_cast<double>(m_time));
             ImGui::Checkbox("Pause", &m_paused);
@@ -222,6 +261,9 @@ private:
 
     Window m_window;
     Camera m_camera;
+    TopCamera m_topCamera;
+    OrbitCamera m_orbitCamera;
+    int m_cameraMode { 0 };
 
     Shader m_defaultShader;
     Shader m_shadowShader;
