@@ -5,12 +5,16 @@ uniform bool hasAlbedoMap;
 uniform sampler2D albedoMap;
 uniform float roughness;
 uniform float metallic;
+uniform bool unlit;
 
 uniform vec3 lightDirection;
 uniform vec3 lightColor;
 uniform float lightIntensity;
 uniform float ambientStrength;
 uniform vec3 cameraPosition;
+
+uniform vec3 pointLightPositions[2];
+uniform vec3 pointLightRadiances[2];
 
 in vec3 fragPosition;
 in vec3 fragNormal;
@@ -43,22 +47,14 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
     return F0 + (1.0 - F0) * pow(1.0 - cosTheta, 5.0);
 }
 
-void main()
+// light reflected toward the camera from one light
+vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo)
 {
-    vec3 albedo = hasAlbedoMap ? texture(albedoMap, fragTexCoord).rgb : baseColor;
-
-    // directions
-    vec3 N = normalize(fragNormal);
-    vec3 L = normalize(lightDirection);
-    vec3 V = normalize(cameraPosition - fragPosition);
     vec3 H = normalize(L + V);
     float NdotL = max(dot(N, L), 0.0);
     float NdotV = max(dot(N, V), 0.0001);
     float NdotH = max(dot(N, H), 0.0);
     float HdotV = max(dot(H, V), 0.0);
-
-    // incoming light
-    vec3 radiance = lightColor * lightIntensity;
 
     // specular (Cook-Torrance)
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
@@ -71,10 +67,32 @@ void main()
     vec3 kD = (1.0 - F) * (1.0 - metallic);
     vec3 diffuse = kD * albedo / PI;
 
-    // ambient
-    vec3 ambient = albedo * ambientStrength;
+    return (diffuse + specular) * radiance * NdotL;
+}
 
-    vec3 color = (diffuse + specular) * radiance * NdotL + ambient;
+void main()
+{
+    vec3 albedo = hasAlbedoMap ? texture(albedoMap, fragTexCoord).rgb : baseColor;
+    if (unlit) {
+        fragColor = vec4(albedo, 1.0);
+        return;
+    }
+
+    vec3 N = normalize(fragNormal);
+    vec3 V = normalize(cameraPosition - fragPosition);
+
+    // sun
+    vec3 color = shadeLight(N, V, normalize(lightDirection), lightColor * lightIntensity, albedo);
+
+    // point lights (inverse-square falloff)
+    for (int i = 0; i < 2; ++i) {
+        vec3 toLight = pointLightPositions[i] - fragPosition;
+        float distanceSquared = dot(toLight, toLight);
+        color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared, albedo);
+    }
+
+    // ambient
+    color += albedo * ambientStrength;
 
     fragColor = vec4(color, 1.0);
 }

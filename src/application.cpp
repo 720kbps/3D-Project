@@ -26,6 +26,13 @@ DISABLE_WARNINGS_POP()
 #include <string>
 #include <vector>
 
+struct PointLight {
+    glm::vec3 position;
+    glm::vec3 color;
+    float intensity { 2.0f };
+    bool enabled { false };
+};
+
 struct SceneObject {
     std::string name;
     const std::vector<GPUMesh>* meshes;
@@ -159,6 +166,16 @@ public:
             // camera position from the inverse view matrix
             const glm::vec3 cameraPosition = glm::vec3(glm::inverse(viewMatrix)[3]);
             glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(cameraPosition));
+
+            // point lights (a disabled light sends no light)
+            for (size_t i = 0; i < m_pointLights.size(); ++i) {
+                const PointLight& light = m_pointLights[i];
+                const glm::vec3 radiance = light.enabled ? light.color * light.intensity : glm::vec3(0.0f);
+                const std::string index = "[" + std::to_string(i) + "]";
+                glUniform3fv(m_defaultShader.getUniformLocation("pointLightPositions" + index), 1, glm::value_ptr(light.position));
+                glUniform3fv(m_defaultShader.getUniformLocation("pointLightRadiances" + index), 1, glm::value_ptr(radiance));
+            }
+            glUniform1i(m_defaultShader.getUniformLocation("unlit"), false);
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
                     continue;
@@ -182,6 +199,21 @@ public:
                 }
 
                 for (const GPUMesh& mesh : *object.meshes)
+                    mesh.draw();
+            }
+
+            // draw a small unlit sphere at each point light
+            glUniform1i(m_defaultShader.getUniformLocation("unlit"), true);
+            glUniform1i(m_defaultShader.getUniformLocation("hasAlbedoMap"), false);
+            for (const PointLight& light : m_pointLights) {
+                if (!light.enabled)
+                    continue;
+                const glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), light.position), glm::vec3(0.08f));
+                const glm::mat4 mvpMatrix = projectionMatrix * viewMatrix * model;
+                glUniformMatrix4fv(m_defaultShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+                glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(model));
+                glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(light.color));
+                for (const GPUMesh& mesh : m_sphereMesh)
                     mesh.draw();
             }
 
@@ -306,6 +338,18 @@ private:
             ImGui::SliderFloat("Intensity", &m_lightIntensity, 0.0f, 10.0f);
             ImGui::SliderFloat("Ambient", &m_ambientStrength, 0.0f, 0.5f);
         }
+        if (ImGui::CollapsingHeader("Point lights")) {
+            for (size_t i = 0; i < m_pointLights.size(); ++i) {
+                PointLight& light = m_pointLights[i];
+                ImGui::PushID(static_cast<int>(i));
+                ImGui::Text("Point light %d", static_cast<int>(i + 1));
+                ImGui::Checkbox("On", &light.enabled);
+                ImGui::SliderFloat3("Position", glm::value_ptr(light.position), -3.0f, 3.0f);
+                ImGui::ColorEdit3("Color", glm::value_ptr(light.color));
+                ImGui::SliderFloat("Intensity", &light.intensity, 0.0f, 10.0f);
+                ImGui::PopID();
+            }
+        }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
@@ -366,6 +410,11 @@ private:
     glm::vec3 m_lightColor { 1.0f };
     float m_lightIntensity { 3.0f };
     float m_ambientStrength { 0.15f };
+
+    std::vector<PointLight> m_pointLights {
+        { glm::vec3(1.3f, 1.0f, 0.0f), glm::vec3(1.0f, 0.6f, 0.3f) },
+        { glm::vec3(-1.3f, 1.0f, 0.0f), glm::vec3(0.3f, 0.6f, 1.0f) },
+    };
 };
 
 int main()
