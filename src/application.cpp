@@ -1,4 +1,5 @@
 #include "core/camera.h"
+#include "core/hdr_framebuffer.h"
 #include "core/mesh.h"
 #include "core/texture.h"
 #include <framework/disable_all_warnings.h>
@@ -72,6 +73,11 @@ public:
             shadowBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/shadow_vert.glsl");
             shadowBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/shadow_frag.glsl");
             m_shadowShader = shadowBuilder.build();
+
+            ShaderBuilder tonemapBuilder;
+            tonemapBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/tonemap_vert.glsl");
+            tonemapBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/tonemap_frag.glsl");
+            m_tonemapShader = tonemapBuilder.build();
         } catch (const ShaderLoadingException& e) {
             std::cerr << e.what() << std::endl;
         }
@@ -103,9 +109,12 @@ public:
             const glm::mat4 viewMatrix = m_camera.viewMatrix();
             const glm::mat4 projectionMatrix = glm::perspective(glm::radians(60.0f), aspectRatio, 0.1f, 50.0f);
 
-            // clear screen
+            // render into the HDR framebuffer
+            m_hdrFramebuffer.resize(framebufferSize);
+            m_hdrFramebuffer.bind();
             glViewport(0, 0, framebufferSize.x, framebufferSize.y);
-            glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+            const glm::vec3 background = srgb(0.2f, 0.2f, 0.2f);
+            glClearColor(background.r, background.g, background.b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
             glEnable(GL_DEPTH_TEST);
 
@@ -134,6 +143,16 @@ public:
                 for (const GPUMesh& mesh : *object.meshes)
                     mesh.draw();
             }
+
+            // tonemap to the screen
+            glBindFramebuffer(GL_FRAMEBUFFER, 0);
+            glDisable(GL_DEPTH_TEST);
+            m_tonemapShader.bind();
+            m_hdrFramebuffer.bindColorTexture(GL_TEXTURE0);
+            glUniform1i(m_tonemapShader.getUniformLocation("hdrColor"), 0);
+            glUniform1f(m_tonemapShader.getUniformLocation("exposure"), m_exposure);
+            glUniform1i(m_tonemapShader.getUniformLocation("useTonemapping"), m_useTonemapping);
+            m_hdrFramebuffer.drawFullscreenTriangle();
 
             m_window.swapBuffers();
         }
@@ -190,6 +209,10 @@ private:
             if (ImGui::Checkbox("VSync", &m_vsync))
                 glfwSwapInterval(m_vsync ? 1 : 0);
         }
+        if (ImGui::CollapsingHeader("HDR")) {
+            ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+            ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
+        }
         if (ImGui::CollapsingHeader("Objects")) {
             for (SceneObject& object : m_objects)
                 ImGui::Checkbox(object.name.c_str(), &object.visible);
@@ -202,6 +225,9 @@ private:
 
     Shader m_defaultShader;
     Shader m_shadowShader;
+    Shader m_tonemapShader;
+
+    HdrFramebuffer m_hdrFramebuffer;
 
     std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
     Texture m_checkerTexture;
@@ -213,6 +239,8 @@ private:
     float m_time { 0.0f };
     bool m_paused { false };
     bool m_vsync { true };
+    float m_exposure { 1.0f };
+    bool m_useTonemapping { false };
 };
 
 int main()

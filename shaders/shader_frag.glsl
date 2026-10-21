@@ -21,6 +21,5 @@ void main()
     float diffuse = max(dot(normal, lightDirection), 0.0);
     vec3 color = albedo * (0.15 + 0.85 * diffuse);
 
-    // gamma
-    fragColor = vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
+    fragColor = vec4(color, 1.0);
 }

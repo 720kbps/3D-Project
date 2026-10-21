@@ -12,6 +12,7 @@ add_executable(Master_TechDemo
 
     # core
     "src/core/camera.cpp"
+    "src/core/hdr_framebuffer.cpp"
     "src/core/mesh.cpp"
     "src/core/texture.cpp"
 
