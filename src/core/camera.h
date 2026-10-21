@@ -12,7 +12,7 @@ public:
     Camera(Window* pWindow);
     Camera(Window* pWindow, const glm::vec3& position, const glm::vec3& forward);
 
-    void updateInput();
+    void updateInput(float deltaTime);
     void setUserInteraction(bool enabled);
 
     glm::vec3 cameraPos() const;

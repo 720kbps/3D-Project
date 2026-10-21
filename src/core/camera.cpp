@@ -49,9 +49,9 @@ void Camera::rotateY(float angle)
     m_up = glm::normalize(glm::cross(m_forward, horAxis));
 }
 
-void Camera::updateInput()
+void Camera::updateInput(float deltaTime)
 {
-    constexpr float moveSpeed = 0.04f;
+    const float moveSpeed = 2.4f * deltaTime;
     constexpr float lookSpeed = 0.0015f;
 
     if (m_userInteraction) {

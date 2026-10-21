@@ -12,7 +12,7 @@ CS4515 final project: a cel-shaded tech demo in C++ / OpenGL. Two authors: Bogda
 
 - **Keep it simple.** Pick the simplest approach that works and use just enough code, but keep it decent quality. Add complexity only after testing shows it's needed. We are beginners in computer graphics and want to understand every line.
 - **Comments:** only short labels for logical steps, like `// load mesh into memory`. No explanations, file headers or paragraphs in code. Explain things in chat instead.
-- **Branches:** one per feature with a flat name like `pbr-shading` or `bezier-path`. No `prefix/` names (`feature/...`). Merge into `main` when it builds and has its UI toggle.
+- do not make branches. the developers are gonna make them as they wish
 - **Ask before** pushing to `main`, deleting branches or deleting the other person's code.
 - Keep in mind that the project is done by Computer Graphics beginners, so we don't expect perfect code. It is more important to have readable code that demonstrates understanding of the concepts, even if it is not the most efficient or elegant solution.
 

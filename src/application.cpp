@@ -82,16 +82,20 @@ public:
         while (!m_window.shouldClose()) {
             m_window.updateInput();
 
-            // delta time
+            // delta time (capped)
             const float now = static_cast<float>(glfwGetTime());
-            m_deltaTime = now - m_lastFrameTime;
+            m_deltaTime = glm::min(now - m_lastFrameTime, 0.1f);
             m_lastFrameTime = now;
+
+            // animation time
+            if (!m_paused)
+                m_time += m_deltaTime;
 
             drawUI();
 
             // camera (ignore mouse while over the UI)
             m_camera.setUserInteraction(!ImGui::GetIO().WantCaptureMouse);
-            m_camera.updateInput();
+            m_camera.updateInput(m_deltaTime);
 
             // view and projection
             const glm::ivec2 framebufferSize = m_window.getFrameBufferSize();
@@ -177,9 +181,15 @@ private:
     void drawUI()
     {
         ImGui::Begin("Settings");
-        ImGui::Text("%.1f FPS", static_cast<double>(ImGui::GetIO().Framerate));
+        ImGui::Text("%.1f FPS (%.2f ms)", static_cast<double>(ImGui::GetIO().Framerate), static_cast<double>(1000.0f / ImGui::GetIO().Framerate));
         ImGui::TextUnformatted("Camera: WASD move, R/F up/down, hold left mouse to look.");
         ImGui::Checkbox("Use textures", &m_useTextures);
+        if (ImGui::CollapsingHeader("Time")) {
+            ImGui::Text("Time: %.2f s", static_cast<double>(m_time));
+            ImGui::Checkbox("Pause", &m_paused);
+            if (ImGui::Checkbox("VSync", &m_vsync))
+                glfwSwapInterval(m_vsync ? 1 : 0);
+        }
         if (ImGui::CollapsingHeader("Objects")) {
             for (SceneObject& object : m_objects)
                 ImGui::Checkbox(object.name.c_str(), &object.visible);
@@ -200,6 +210,9 @@ private:
     bool m_useTextures { true };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
+    float m_time { 0.0f };
+    bool m_paused { false };
+    bool m_vsync { true };
 };
 
 int main()
