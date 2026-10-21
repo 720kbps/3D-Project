@@ -33,6 +33,8 @@ struct SceneObject {
     glm::vec3 baseColor { 0.8f };
     const Texture* albedoMap { nullptr };
     bool visible { true };
+    float roughness { 0.5f };
+    float metallic { 0.0f };
 };
 
 static glm::vec3 srgb(float r, float g, float b)
@@ -147,6 +149,16 @@ public:
 
             // draw objects
             m_defaultShader.bind();
+
+            // light
+            glUniform3fv(m_defaultShader.getUniformLocation("lightDirection"), 1, glm::value_ptr(m_lightDirection));
+            glUniform3fv(m_defaultShader.getUniformLocation("lightColor"), 1, glm::value_ptr(m_lightColor));
+            glUniform1f(m_defaultShader.getUniformLocation("lightIntensity"), m_lightIntensity);
+            glUniform1f(m_defaultShader.getUniformLocation("ambientStrength"), m_ambientStrength);
+
+            // camera position from the inverse view matrix
+            const glm::vec3 cameraPosition = glm::vec3(glm::inverse(viewMatrix)[3]);
+            glUniform3fv(m_defaultShader.getUniformLocation("cameraPosition"), 1, glm::value_ptr(cameraPosition));
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
                     continue;
@@ -160,6 +172,8 @@ public:
 
                 // material
                 glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(object.baseColor));
+                glUniform1f(m_defaultShader.getUniformLocation("roughness"), object.roughness);
+                glUniform1f(m_defaultShader.getUniformLocation("metallic"), object.metallic);
                 const bool useTexture = object.albedoMap && m_useTextures;
                 glUniform1i(m_defaultShader.getUniformLocation("hasAlbedoMap"), useTexture);
                 if (useTexture) {
@@ -233,7 +247,10 @@ private:
 
         // ground and dragon
         m_objects.push_back({ "Ground", &m_planeMesh, glm::scale(glm::mat4(1.0f), glm::vec3(6.0f, 1.0f, 6.0f)), srgb(0.45f, 0.47f, 0.5f) });
-        m_objects.push_back({ "Dragon", &m_dragonMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.283f, 0.0f)), srgb(0.85f, 0.7f, 0.35f) });
+        m_objects.back().roughness = 0.8f;
+        m_objects.push_back({ "Dragon", &m_dragonMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.283f, 0.0f)), srgb(1.0f, 0.78f, 0.34f) });
+        m_objects.back().roughness = 0.3f;
+        m_objects.back().metallic = 1.0f;
 
         // spheres
         const glm::vec3 sphereColors[] = { srgb(0.8f, 0.2f, 0.2f), srgb(0.2f, 0.7f, 0.3f), srgb(0.2f, 0.4f, 0.85f), srgb(0.9f, 0.8f, 0.2f) };
@@ -241,6 +258,7 @@ private:
             const glm::vec3 position(1.3f, 0.3f, -1.2f + 0.8f * static_cast<float>(i));
             const glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), position), glm::vec3(0.6f));
             m_objects.push_back({ "Sphere " + std::to_string(i + 1), &m_sphereMesh, model, sphereColors[i] });
+            m_objects.back().roughness = 0.15f + 0.25f * static_cast<float>(i);
         }
 
         // cube
@@ -282,9 +300,26 @@ private:
             if (ImGui::Checkbox("VSync", &m_vsync))
                 glfwSwapInterval(m_vsync ? 1 : 0);
         }
+        if (ImGui::CollapsingHeader("Light")) {
+            ImGui::SliderFloat3("Direction", glm::value_ptr(m_lightDirection), -1.0f, 1.0f);
+            ImGui::ColorEdit3("Color", glm::value_ptr(m_lightColor));
+            ImGui::SliderFloat("Intensity", &m_lightIntensity, 0.0f, 10.0f);
+            ImGui::SliderFloat("Ambient", &m_ambientStrength, 0.0f, 0.5f);
+        }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
+        }
+        if (ImGui::CollapsingHeader("Materials")) {
+            for (size_t i = 0; i < m_objects.size(); ++i) {
+                ImGui::PushID(static_cast<int>(i));
+                if (ImGui::TreeNode(m_objects[i].name.c_str())) {
+                    ImGui::SliderFloat("Roughness", &m_objects[i].roughness, 0.05f, 1.0f);
+                    ImGui::SliderFloat("Metallic", &m_objects[i].metallic, 0.0f, 1.0f);
+                    ImGui::TreePop();
+                }
+                ImGui::PopID();
+            }
         }
         if (ImGui::CollapsingHeader("Objects")) {
             for (size_t i = 0; i < m_objects.size(); ++i) {
@@ -326,6 +361,11 @@ private:
     bool m_vsync { true };
     float m_exposure { 1.0f };
     bool m_useTonemapping { false };
+
+    glm::vec3 m_lightDirection { 0.4f, 1.0f, 0.3f };
+    glm::vec3 m_lightColor { 1.0f };
+    float m_lightIntensity { 3.0f };
+    float m_ambientStrength { 0.15f };
 };
 
 int main()
