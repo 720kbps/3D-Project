@@ -176,6 +176,7 @@ public:
                 glUniform3fv(m_defaultShader.getUniformLocation("pointLightRadiances" + index), 1, glm::value_ptr(radiance));
             }
             glUniform1i(m_defaultShader.getUniformLocation("unlit"), false);
+            glUniform1i(m_defaultShader.getUniformLocation("usePBR"), m_shadingModel == 1);
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
                     continue;
@@ -314,6 +315,8 @@ private:
         ImGui::Text("%.1f FPS (%.2f ms)", static_cast<double>(ImGui::GetIO().Framerate), static_cast<double>(1000.0f / ImGui::GetIO().Framerate));
         ImGui::TextUnformatted("Camera: WASD move, R/F up/down, hold left mouse to look.");
         ImGui::Checkbox("Use textures", &m_useTextures);
+        const char* shadingModels[] = { "Blinn-Phong", "PBR" };
+        ImGui::Combo("Shading", &m_shadingModel, shadingModels, 2);
         if (ImGui::CollapsingHeader("Camera")) {
             const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
             ImGui::Combo("Mode", &m_cameraMode, cameraModes, 4);
@@ -398,6 +401,7 @@ private:
     bool m_showPath { true };
 
     bool m_useTextures { true };
+    int m_shadingModel { 1 };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
     float m_time { 0.0f };

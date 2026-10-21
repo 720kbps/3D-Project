@@ -6,6 +6,7 @@ uniform sampler2D albedoMap;
 uniform float roughness;
 uniform float metallic;
 uniform bool unlit;
+uniform bool usePBR;
 
 uniform vec3 lightDirection;
 uniform vec3 lightColor;
@@ -55,6 +56,14 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo)
     float NdotV = max(dot(N, V), 0.0001);
     float NdotH = max(dot(N, H), 0.0);
     float HdotV = max(dot(H, V), 0.0);
+
+    // Blinn-Phong, with shininess from roughness
+    if (!usePBR) {
+        float alpha = roughness * roughness;
+        float shininess = 2.0 / (alpha * alpha) - 2.0;
+        vec3 specular = vec3(0.25 * pow(NdotH, shininess));
+        return (albedo / PI + specular) * radiance * NdotL;
+    }
 
     // specular (Cook-Torrance)
     vec3 F0 = mix(vec3(0.04), albedo, metallic);
