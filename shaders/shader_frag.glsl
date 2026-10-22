@@ -90,8 +90,15 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
 
     // cel: snap the diffuse light to flat bands
     float diffuseLight = NdotL;
-    if (shadingModel == 2)
-        diffuseLight = min(floor(NdotL * float(celBands)) / float(celBands - 1), 1.0);
+    if (shadingModel == 2) {
+        float x = NdotL * float(celBands);
+
+        // smooth each band edge over about one pixel
+        float edgeWidth = fwidth(x);
+        float banded = floor(x) + smoothstep(1.0 - edgeWidth, 1.0, fract(x));
+
+        diffuseLight = min(banded / float(celBands - 1), 1.0);
+    }
 
     return diffuse * radiance * diffuseLight + specular * radiance * NdotL;
 }
