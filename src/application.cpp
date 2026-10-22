@@ -193,7 +193,8 @@ public:
                 glUniform3fv(m_defaultShader.getUniformLocation("pointLightRadiances" + index), 1, glm::value_ptr(radiance));
             }
             glUniform1i(m_defaultShader.getUniformLocation("unlit"), false);
-            glUniform1i(m_defaultShader.getUniformLocation("usePBR"), m_shadingModel == 1);
+            glUniform1i(m_defaultShader.getUniformLocation("shadingModel"), m_shadingModel);
+            glUniform1i(m_defaultShader.getUniformLocation("celBands"), m_celBands);
 
             // environment
             glUniform1i(m_defaultShader.getUniformLocation("useEnvironment"), m_useReflections);
@@ -387,8 +388,10 @@ private:
         ImGui::Checkbox("AO maps", &m_useAoMaps);
         ImGui::Checkbox("Normal maps", &m_useNormalMaps);
         ImGui::SliderFloat("Normal strength", &m_normalStrength, 0.0f, 3.0f);
-        const char* shadingModels[] = { "Blinn-Phong", "PBR" };
-        ImGui::Combo("Shading", &m_shadingModel, shadingModels, 2);
+        const char* shadingModels[] = { "Blinn-Phong", "PBR", "Cel" };
+        ImGui::Combo("Shading", &m_shadingModel, shadingModels, 3);
+        if (m_shadingModel == 2)
+            ImGui::SliderInt("Bands", &m_celBands, 2, 5);
         if (ImGui::CollapsingHeader("Camera")) {
             const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
             ImGui::Combo("Mode", &m_cameraMode, cameraModes, 4);
@@ -490,7 +493,8 @@ private:
     bool m_useAoMaps { true };
     bool m_useNormalMaps { true };
     float m_normalStrength { 1.0f };
-    int m_shadingModel { 1 };
+    int m_shadingModel { 2 };
+    int m_celBands { 3 };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
     float m_time { 0.0f };

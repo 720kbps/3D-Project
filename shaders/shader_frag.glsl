@@ -15,7 +15,8 @@ uniform bool hasNormalMap;
 uniform sampler2D normalMap;
 uniform float normalStrength;
 uniform bool unlit;
-uniform bool usePBR;
+uniform int shadingModel;
+uniform int celBands;
 
 uniform vec3 lightDirection;
 uniform vec3 lightColor;
@@ -69,7 +70,7 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
     float HdotV = max(dot(H, V), 0.0);
 
     // Blinn-Phong, with shininess from roughness
-    if (!usePBR) {
+    if (shadingModel == 0) {
         float alpha = roughness * roughness;
         float shininess = 2.0 / (alpha * alpha) - 2.0;
         vec3 specular = vec3(0.25 * pow(NdotH, shininess));
@@ -87,7 +88,12 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
     vec3 kD = (1.0 - F) * (1.0 - metallic);
     vec3 diffuse = kD * albedo / PI;
 
-    return (diffuse + specular) * radiance * NdotL;
+    // cel: snap the diffuse light to flat bands
+    float diffuseLight = NdotL;
+    if (shadingModel == 2)
+        diffuseLight = min(floor(NdotL * float(celBands)) / float(celBands - 1), 1.0);
+
+    return diffuse * radiance * diffuseLight + specular * radiance * NdotL;
 }
 
 void main()
