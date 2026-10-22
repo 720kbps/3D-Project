@@ -3,8 +3,12 @@
 uniform vec3 baseColor;
 uniform bool hasAlbedoMap;
 uniform sampler2D albedoMap;
-uniform float roughness;
-uniform float metallic;
+uniform float baseRoughness;
+uniform bool hasRoughnessMap;
+uniform sampler2D roughnessMap;
+uniform float baseMetallic;
+uniform bool hasMetallicMap;
+uniform sampler2D metallicMap;
 uniform bool unlit;
 uniform bool usePBR;
 
@@ -49,7 +53,7 @@ vec3 fresnelSchlick(float cosTheta, vec3 F0)
 }
 
 // light reflected toward the camera from one light
-vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo)
+vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughness, float metallic)
 {
     vec3 H = normalize(L + V);
     float NdotL = max(dot(N, L), 0.0);
@@ -81,7 +85,11 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo)
 
 void main()
 {
+    // material
     vec3 albedo = hasAlbedoMap ? texture(albedoMap, fragTexCoord).rgb : baseColor;
+    float roughness = hasRoughnessMap ? texture(roughnessMap, fragTexCoord).r : baseRoughness;
+    roughness = max(roughness, 0.05);
+    float metallic = hasMetallicMap ? texture(metallicMap, fragTexCoord).r : baseMetallic;
     if (unlit) {
         fragColor = vec4(albedo, 1.0);
         return;
@@ -91,13 +99,13 @@ void main()
     vec3 V = normalize(cameraPosition - fragPosition);
 
     // sun
-    vec3 color = shadeLight(N, V, normalize(lightDirection), lightColor * lightIntensity, albedo);
+    vec3 color = shadeLight(N, V, normalize(lightDirection), lightColor * lightIntensity, albedo, roughness, metallic);
 
     // point lights (inverse-square falloff)
     for (int i = 0; i < 2; ++i) {
         vec3 toLight = pointLightPositions[i] - fragPosition;
         float distanceSquared = dot(toLight, toLight);
-        color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared, albedo);
+        color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared, albedo, roughness, metallic);
     }
 
     // ambient

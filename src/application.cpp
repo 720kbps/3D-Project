@@ -39,6 +39,8 @@ struct SceneObject {
     glm::mat4 modelMatrix { 1.0f };
     glm::vec3 baseColor { 0.8f };
     const Texture* albedoMap { nullptr };
+    const Texture* roughnessMap { nullptr };
+    const Texture* metallicMap { nullptr };
     bool visible { true };
     float roughness { 0.5f };
     float metallic { 0.0f };
@@ -54,7 +56,9 @@ public:
     Application()
         : m_window("Final Project", glm::ivec2(1024, 1024), OpenGLVersion::GL41)
         , m_camera(&m_window, glm::vec3(3.0f, 2.0f, 3.0f), -glm::vec3(3.0f, 2.0f, 3.0f))
-        , m_checkerTexture(RESOURCE_ROOT "resources/checkerboard.png", ColorSpace::Srgb)
+        , m_metalAlbedo(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Color.jpg", ColorSpace::Srgb)
+        , m_metalRoughness(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Roughness.jpg", ColorSpace::Linear)
+        , m_metalMetallic(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Metalness.jpg", ColorSpace::Linear)
     {
         // input callbacks
         m_window.registerKeyCallback([this](int key, int /* scancode */, int action, int mods) {
@@ -190,13 +194,25 @@ public:
 
                 // material
                 glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(object.baseColor));
-                glUniform1f(m_defaultShader.getUniformLocation("roughness"), object.roughness);
-                glUniform1f(m_defaultShader.getUniformLocation("metallic"), object.metallic);
-                const bool useTexture = object.albedoMap && m_useTextures;
+                glUniform1f(m_defaultShader.getUniformLocation("baseRoughness"), object.roughness);
+                glUniform1f(m_defaultShader.getUniformLocation("baseMetallic"), object.metallic);
+                const bool useTexture = object.albedoMap && m_useAlbedoMaps;
                 glUniform1i(m_defaultShader.getUniformLocation("hasAlbedoMap"), useTexture);
                 if (useTexture) {
                     object.albedoMap->bind(GL_TEXTURE0);
                     glUniform1i(m_defaultShader.getUniformLocation("albedoMap"), 0);
+                }
+                const bool useRoughnessMap = object.roughnessMap && m_useRoughnessMaps;
+                glUniform1i(m_defaultShader.getUniformLocation("hasRoughnessMap"), useRoughnessMap);
+                if (useRoughnessMap) {
+                    object.roughnessMap->bind(GL_TEXTURE1);
+                    glUniform1i(m_defaultShader.getUniformLocation("roughnessMap"), 1);
+                }
+                const bool useMetallicMap = object.metallicMap && m_useMetallicMaps;
+                glUniform1i(m_defaultShader.getUniformLocation("hasMetallicMap"), useMetallicMap);
+                if (useMetallicMap) {
+                    object.metallicMap->bind(GL_TEXTURE2);
+                    glUniform1i(m_defaultShader.getUniformLocation("metallicMap"), 2);
                 }
 
                 for (const GPUMesh& mesh : *object.meshes)
@@ -206,6 +222,8 @@ public:
             // draw a small unlit sphere at each point light
             glUniform1i(m_defaultShader.getUniformLocation("unlit"), true);
             glUniform1i(m_defaultShader.getUniformLocation("hasAlbedoMap"), false);
+            glUniform1i(m_defaultShader.getUniformLocation("hasRoughnessMap"), false);
+            glUniform1i(m_defaultShader.getUniformLocation("hasMetallicMap"), false);
             for (const PointLight& light : m_pointLights) {
                 if (!light.enabled)
                     continue;
@@ -298,7 +316,9 @@ private:
         glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(-1.3f, 0.35f, -0.6f));
         cubeModel = glm::rotate(cubeModel, glm::radians(30.0f), glm::vec3(0, 1, 0));
         cubeModel = glm::scale(cubeModel, glm::vec3(0.7f));
-        m_objects.push_back({ "Cube", &m_cubeMesh, cubeModel, glm::vec3(1.0f), &m_checkerTexture });
+        m_objects.push_back({ "Cube", &m_cubeMesh, cubeModel, glm::vec3(1.0f), &m_metalAlbedo });
+        m_objects.back().roughnessMap = &m_metalRoughness;
+        m_objects.back().metallicMap = &m_metalMetallic;
 
         // cart riding the path
         m_objects.push_back({ "Cart", &m_sphereMesh, glm::mat4(1.0f), srgb(0.95f, 0.95f, 0.95f) });
@@ -314,7 +334,9 @@ private:
         ImGui::Begin("Settings");
         ImGui::Text("%.1f FPS (%.2f ms)", static_cast<double>(ImGui::GetIO().Framerate), static_cast<double>(1000.0f / ImGui::GetIO().Framerate));
         ImGui::TextUnformatted("Camera: WASD move, R/F up/down, hold left mouse to look.");
-        ImGui::Checkbox("Use textures", &m_useTextures);
+        ImGui::Checkbox("Albedo maps", &m_useAlbedoMaps);
+        ImGui::Checkbox("Roughness maps", &m_useRoughnessMaps);
+        ImGui::Checkbox("Metallic maps", &m_useMetallicMaps);
         const char* shadingModels[] = { "Blinn-Phong", "PBR" };
         ImGui::Combo("Shading", &m_shadingModel, shadingModels, 2);
         if (ImGui::CollapsingHeader("Camera")) {
@@ -392,7 +414,9 @@ private:
     HdrFramebuffer m_hdrFramebuffer;
 
     std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
-    Texture m_checkerTexture;
+    Texture m_metalAlbedo;
+    Texture m_metalRoughness;
+    Texture m_metalMetallic;
     std::vector<SceneObject> m_objects;
 
     BezierPath m_path;
@@ -400,7 +424,9 @@ private:
     float m_cartSpeed { 0.3f };
     bool m_showPath { true };
 
-    bool m_useTextures { true };
+    bool m_useAlbedoMaps { true };
+    bool m_useRoughnessMaps { true };
+    bool m_useMetallicMaps { true };
     int m_shadingModel { 1 };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
