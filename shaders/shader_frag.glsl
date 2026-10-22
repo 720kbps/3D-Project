@@ -18,6 +18,8 @@ uniform bool unlit;
 uniform int shadingModel;
 uniform int celBands;
 uniform vec3 shadowTint;
+uniform float specularThreshold;
+uniform float specularStrength;
 
 uniform vec3 lightDirection;
 uniform vec3 lightColor;
@@ -99,6 +101,14 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
         float banded = floor(x) + smoothstep(1.0 - edgeWidth, 1.0, fract(x));
 
         diffuseLight = min(banded / float(celBands - 1), 1.0);
+
+        // hard highlight: on where GGX is above a threshold
+        float highlight = D * NdotL;
+        float highlightWidth = fwidth(highlight);
+        float mask = smoothstep(specularThreshold - highlightWidth, specularThreshold + highlightWidth, highlight);
+        vec3 highlightColor = mix(vec3(1.0), albedo, metallic) * specularStrength;
+
+        return diffuse * radiance * diffuseLight + highlightColor * mask * radiance;
     }
 
     return diffuse * radiance * diffuseLight + specular * radiance * NdotL;

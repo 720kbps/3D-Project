@@ -196,6 +196,8 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("shadingModel"), m_shadingModel);
             glUniform1i(m_defaultShader.getUniformLocation("celBands"), m_celBands);
             glUniform3fv(m_defaultShader.getUniformLocation("shadowTint"), 1, glm::value_ptr(m_shadowTint));
+            glUniform1f(m_defaultShader.getUniformLocation("specularThreshold"), m_specularThreshold);
+            glUniform1f(m_defaultShader.getUniformLocation("specularStrength"), m_specularStrength);
 
             // environment
             glUniform1i(m_defaultShader.getUniformLocation("useEnvironment"), m_useReflections);
@@ -394,6 +396,8 @@ private:
         if (m_shadingModel == 2) {
             ImGui::SliderInt("Bands", &m_celBands, 2, 5);
             ImGui::ColorEdit3("Shadow tint", glm::value_ptr(m_shadowTint));
+            ImGui::SliderFloat("Highlight threshold", &m_specularThreshold, 0.7f, 1.5f);
+            ImGui::SliderFloat("Highlight strength", &m_specularStrength, 0.0f, 0.5f);
         }
         if (ImGui::CollapsingHeader("Camera")) {
             const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
@@ -499,6 +503,8 @@ private:
     int m_shadingModel { 2 };
     int m_celBands { 3 };
     glm::vec3 m_shadowTint { 0.10f, 0.12f, 0.28f };
+    float m_specularThreshold { 1.0f };
+    float m_specularStrength { 0.5f };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
     float m_time { 0.0f };
