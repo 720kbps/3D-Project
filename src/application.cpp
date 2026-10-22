@@ -460,7 +460,7 @@ private:
             }
         }
         if (ImGui::CollapsingHeader("Outlines")) {
-            ImGui::Checkbox("Outlines", &m_useOutlines);
+            ImGui::Checkbox("Show outlines", &m_useOutlines);
             ImGui::SliderFloat("Depth threshold", &m_depthThreshold, 0.05f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("Normal threshold", &m_normalThreshold, 0.1f, 4.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
         }
