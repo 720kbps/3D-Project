@@ -16,6 +16,7 @@ public:
     void bind() const;
     void bindColorTexture(GLenum textureSlot) const;
     void bindDepthTexture(GLenum textureSlot) const;
+    void bindNormalTexture(GLenum textureSlot) const;
     void drawFullscreenTriangle() const;
 
 private:
@@ -23,5 +24,6 @@ private:
     GLuint m_framebuffer { 0 };
     GLuint m_colorTexture { 0 };
     GLuint m_depthTexture { 0 };
+    GLuint m_normalTexture { 0 };
     GLuint m_emptyVao { 0 };
 };

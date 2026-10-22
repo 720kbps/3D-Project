@@ -170,6 +170,8 @@ public:
             const glm::vec3 background = srgb(0.2f, 0.2f, 0.2f);
             glClearColor(background.r, background.g, background.b, 1.0f);
             glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+            const float noNormal[] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            glClearBufferfv(GL_COLOR, 1, noNormal);
             glEnable(GL_DEPTH_TEST);
 
             // draw objects
@@ -309,6 +311,9 @@ public:
             m_hdrFramebuffer.bindDepthTexture(GL_TEXTURE1);
             glUniform1i(m_tonemapShader.getUniformLocation("depthTexture"), 1);
             glUniform1i(m_tonemapShader.getUniformLocation("useOutlines"), m_useOutlines);
+            m_hdrFramebuffer.bindNormalTexture(GL_TEXTURE2);
+            glUniform1i(m_tonemapShader.getUniformLocation("normalTexture"), 2);
+            glUniform1f(m_tonemapShader.getUniformLocation("normalThreshold"), m_normalThreshold);
             glUniform1f(m_tonemapShader.getUniformLocation("depthThreshold"), m_depthThreshold);
             glUniform1f(m_tonemapShader.getUniformLocation("nearPlane"), 0.1f);
             glUniform1f(m_tonemapShader.getUniformLocation("farPlane"), m_cameraMode == 1 ? m_topCamera.height + 5.0f : 50.0f);
@@ -457,6 +462,7 @@ private:
         if (ImGui::CollapsingHeader("Outlines")) {
             ImGui::Checkbox("Outlines", &m_useOutlines);
             ImGui::SliderFloat("Depth threshold", &m_depthThreshold, 0.05f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SliderFloat("Normal threshold", &m_normalThreshold, 0.1f, 4.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
         }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
@@ -537,6 +543,7 @@ private:
     bool m_useTonemapping { false };
     bool m_useOutlines { true };
     float m_depthThreshold { 0.3f };
+    float m_normalThreshold { 1.0f };
 
     glm::vec3 m_lightDirection { 0.4f, 1.0f, 0.3f };
     glm::vec3 m_lightColor { 1.0f };

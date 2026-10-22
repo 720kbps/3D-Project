@@ -41,6 +41,7 @@ in vec2 fragTexCoord;
 in vec4 fragTangent;
 
 layout(location = 0) out vec4 fragColor;
+layout(location = 1) out vec4 outNormal;
 
 const float PI = 3.14159265;
 
@@ -119,6 +120,9 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
 
 void main()
 {
+    // surface normal for the outline pass (without the normal map)
+    outNormal = vec4(normalize(fragNormal), 1.0);
+
     // material
     vec3 albedo = hasAlbedoMap ? texture(albedoMap, fragTexCoord).rgb : baseColor;
     float roughness = hasRoughnessMap ? texture(roughnessMap, fragTexCoord).r : baseRoughness;

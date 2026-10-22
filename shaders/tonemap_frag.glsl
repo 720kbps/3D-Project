@@ -6,6 +6,8 @@ uniform bool useTonemapping;
 uniform sampler2D depthTexture;
 uniform bool useOutlines;
 uniform float depthThreshold;
+uniform sampler2D normalTexture;
+uniform float normalThreshold;
 uniform float nearPlane;
 uniform float farPlane;
 uniform bool orthographic;
@@ -43,13 +45,30 @@ float depthEdge()
     return sqrt(gx * gx + gy * gy) / d[4];
 }
 
+// Sobel: how fast the surface direction changes around this pixel
+float normalEdge()
+{
+    vec2 texel = 1.0 / vec2(textureSize(normalTexture, 0));
+
+    // 3x3 neighbourhood
+    vec3 n[9];
+    for (int y = -1; y <= 1; ++y)
+        for (int x = -1; x <= 1; ++x)
+            n[(y + 1) * 3 + (x + 1)] = texture(normalTexture, texCoord + vec2(x, y) * texel).xyz;
+
+    // horizontal and vertical change
+    vec3 gx = (n[2] + 2.0 * n[5] + n[8]) - (n[0] + 2.0 * n[3] + n[6]);
+    vec3 gy = (n[6] + 2.0 * n[7] + n[8]) - (n[0] + 2.0 * n[1] + n[2]);
+    return sqrt(dot(gx, gx) + dot(gy, gy));
+}
+
 void main()
 {
     // exposure
     vec3 color = texture(hdrColor, texCoord).rgb * exposure;
 
     // outlines
-    if (useOutlines && depthEdge() > depthThreshold)
+    if (useOutlines && (depthEdge() > depthThreshold || normalEdge() > normalThreshold))
         color = vec3(0.0);
 
     // tonemap (Reinhard)
