@@ -306,6 +306,9 @@ public:
             glUniform1i(m_tonemapShader.getUniformLocation("hdrColor"), 0);
             glUniform1f(m_tonemapShader.getUniformLocation("exposure"), m_exposure);
             glUniform1i(m_tonemapShader.getUniformLocation("useTonemapping"), m_useTonemapping);
+            m_hdrFramebuffer.bindDepthTexture(GL_TEXTURE1);
+            glUniform1i(m_tonemapShader.getUniformLocation("depthTexture"), 1);
+            glUniform1i(m_tonemapShader.getUniformLocation("useOutlines"), m_useOutlines);
             m_hdrFramebuffer.drawFullscreenTriangle();
 
             m_window.swapBuffers();
@@ -447,6 +450,9 @@ private:
                 ImGui::PopID();
             }
         }
+        if (ImGui::CollapsingHeader("Outlines")) {
+            ImGui::Checkbox("Outlines", &m_useOutlines);
+        }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
@@ -524,6 +530,7 @@ private:
     bool m_vsync { true };
     float m_exposure { 1.0f };
     bool m_useTonemapping { false };
+    bool m_useOutlines { true };
 
     glm::vec3 m_lightDirection { 0.4f, 1.0f, 0.3f };
     glm::vec3 m_lightColor { 1.0f };

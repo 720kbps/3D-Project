@@ -15,6 +15,7 @@ public:
     void resize(const glm::ivec2& size);
     void bind() const;
     void bindColorTexture(GLenum textureSlot) const;
+    void bindDepthTexture(GLenum textureSlot) const;
     void drawFullscreenTriangle() const;
 
 private:

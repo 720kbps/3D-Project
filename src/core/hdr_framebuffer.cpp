@@ -61,6 +61,12 @@ void HdrFramebuffer::bindColorTexture(GLenum textureSlot) const
     glBindTexture(GL_TEXTURE_2D, m_colorTexture);
 }
 
+void HdrFramebuffer::bindDepthTexture(GLenum textureSlot) const
+{
+    glActiveTexture(textureSlot);
+    glBindTexture(GL_TEXTURE_2D, m_depthTexture);
+}
+
 void HdrFramebuffer::drawFullscreenTriangle() const
 {
     glBindVertexArray(m_emptyVao);
