@@ -17,6 +17,7 @@ uniform float normalStrength;
 uniform bool unlit;
 uniform int shadingModel;
 uniform int celBands;
+uniform vec3 shadowTint;
 
 uniform vec3 lightDirection;
 uniform vec3 lightColor;
@@ -139,8 +140,11 @@ void main()
         color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared, albedo, roughness, metallic);
     }
 
-    // ambient, darkened in crevices
-    color += albedo * ambientStrength * ao;
+    // ambient (cel: coloured shadow tint), darkened in crevices
+    if (shadingModel == 2)
+        color += albedo * shadowTint * ao;
+    else
+        color += albedo * ambientStrength * ao;
 
     // environment reflection
     if (useEnvironment) {

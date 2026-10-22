@@ -195,6 +195,7 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("unlit"), false);
             glUniform1i(m_defaultShader.getUniformLocation("shadingModel"), m_shadingModel);
             glUniform1i(m_defaultShader.getUniformLocation("celBands"), m_celBands);
+            glUniform3fv(m_defaultShader.getUniformLocation("shadowTint"), 1, glm::value_ptr(m_shadowTint));
 
             // environment
             glUniform1i(m_defaultShader.getUniformLocation("useEnvironment"), m_useReflections);
@@ -390,8 +391,10 @@ private:
         ImGui::SliderFloat("Normal strength", &m_normalStrength, 0.0f, 3.0f);
         const char* shadingModels[] = { "Blinn-Phong", "PBR", "Cel" };
         ImGui::Combo("Shading", &m_shadingModel, shadingModels, 3);
-        if (m_shadingModel == 2)
+        if (m_shadingModel == 2) {
             ImGui::SliderInt("Bands", &m_celBands, 2, 5);
+            ImGui::ColorEdit3("Shadow tint", glm::value_ptr(m_shadowTint));
+        }
         if (ImGui::CollapsingHeader("Camera")) {
             const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
             ImGui::Combo("Mode", &m_cameraMode, cameraModes, 4);
@@ -495,6 +498,7 @@ private:
     float m_normalStrength { 1.0f };
     int m_shadingModel { 2 };
     int m_celBands { 3 };
+    glm::vec3 m_shadowTint { 0.10f, 0.12f, 0.28f };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
     float m_time { 0.0f };
