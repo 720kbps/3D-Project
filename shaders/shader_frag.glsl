@@ -134,7 +134,11 @@ void main()
         vec3 R = reflect(-V, N);
         vec3 F0 = mix(vec3(0.04), albedo, metallic);
         vec3 F = fresnelSchlick(max(dot(N, V), 0.0), F0);
-        color += texture(environmentMap, R).rgb * F * ao;
+
+        // rougher surface -> blurrier mip level
+        float maxMip = log2(float(textureSize(environmentMap, 0).x));
+        vec3 environment = textureLod(environmentMap, R, roughness * maxMip).rgb;
+        color += environment * F * ao;
     }
 
     fragColor = vec4(color, 1.0);
