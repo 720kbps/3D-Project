@@ -46,6 +46,7 @@ struct SceneObject {
     bool visible { true };
     float roughness { 0.5f };
     float metallic { 0.0f };
+    bool rim { true };
 };
 
 static glm::vec3 srgb(float r, float g, float b)
@@ -198,6 +199,8 @@ public:
             glUniform3fv(m_defaultShader.getUniformLocation("shadowTint"), 1, glm::value_ptr(m_shadowTint));
             glUniform1f(m_defaultShader.getUniformLocation("specularThreshold"), m_specularThreshold);
             glUniform1f(m_defaultShader.getUniformLocation("specularStrength"), m_specularStrength);
+            glUniform3fv(m_defaultShader.getUniformLocation("rimColor"), 1, glm::value_ptr(m_rimColor));
+            glUniform1f(m_defaultShader.getUniformLocation("rimSize"), m_rimSize);
 
             // environment
             glUniform1i(m_defaultShader.getUniformLocation("useEnvironment"), m_useReflections);
@@ -218,6 +221,7 @@ public:
                 glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(object.baseColor));
                 glUniform1f(m_defaultShader.getUniformLocation("baseRoughness"), object.roughness);
                 glUniform1f(m_defaultShader.getUniformLocation("baseMetallic"), object.metallic);
+                glUniform1i(m_defaultShader.getUniformLocation("hasRim"), object.rim && m_useRim);
                 const bool useTexture = object.albedoMap && m_useAlbedoMaps;
                 glUniform1i(m_defaultShader.getUniformLocation("hasAlbedoMap"), useTexture);
                 if (useTexture) {
@@ -348,6 +352,7 @@ private:
         // ground and dragon
         m_objects.push_back({ "Ground", &m_planeMesh, glm::scale(glm::mat4(1.0f), glm::vec3(6.0f, 1.0f, 6.0f)), srgb(0.45f, 0.47f, 0.5f) });
         m_objects.back().roughness = 0.8f;
+        m_objects.back().rim = false;
         m_objects.push_back({ "Dragon", &m_dragonMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.283f, 0.0f)), srgb(1.0f, 0.78f, 0.34f) });
         m_objects.back().roughness = 0.3f;
         m_objects.back().metallic = 1.0f;
@@ -398,6 +403,9 @@ private:
             ImGui::ColorEdit3("Shadow tint", glm::value_ptr(m_shadowTint));
             ImGui::SliderFloat("Highlight threshold", &m_specularThreshold, 0.7f, 1.5f);
             ImGui::SliderFloat("Highlight strength", &m_specularStrength, 0.0f, 0.5f);
+            ImGui::Checkbox("Rim light", &m_useRim);
+            ImGui::ColorEdit3("Rim color", glm::value_ptr(m_rimColor));
+            ImGui::SliderFloat("Rim size", &m_rimSize, 0.0f, 0.5f);
         }
         if (ImGui::CollapsingHeader("Camera")) {
             const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
@@ -449,6 +457,7 @@ private:
                 if (ImGui::TreeNode(m_objects[i].name.c_str())) {
                     ImGui::SliderFloat("Roughness", &m_objects[i].roughness, 0.05f, 1.0f);
                     ImGui::SliderFloat("Metallic", &m_objects[i].metallic, 0.0f, 1.0f);
+                    ImGui::Checkbox("Rim light", &m_objects[i].rim);
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
@@ -505,6 +514,9 @@ private:
     glm::vec3 m_shadowTint { 0.10f, 0.12f, 0.28f };
     float m_specularThreshold { 1.0f };
     float m_specularStrength { 0.5f };
+    bool m_useRim { true };
+    glm::vec3 m_rimColor { 0.5f };
+    float m_rimSize { 0.25f };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
     float m_time { 0.0f };

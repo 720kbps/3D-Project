@@ -20,6 +20,9 @@ uniform int celBands;
 uniform vec3 shadowTint;
 uniform float specularThreshold;
 uniform float specularStrength;
+uniform bool hasRim;
+uniform vec3 rimColor;
+uniform float rimSize;
 
 uniform vec3 lightDirection;
 uniform vec3 lightColor;
@@ -155,6 +158,14 @@ void main()
         color += albedo * shadowTint * ao;
     else
         color += albedo * ambientStrength * ao;
+
+    // cel: rim light on the lit side of the silhouette
+    if (shadingModel == 2 && hasRim) {
+        float rim = (1.0 - max(dot(N, V), 0.0)) * pow(max(dot(N, normalize(lightDirection)), 0.0), 0.1);
+        float rimWidth = fwidth(rim);
+        float rimMask = smoothstep(1.0 - rimSize - rimWidth, 1.0 - rimSize + rimWidth, rim);
+        color += rimColor * rimMask;
+    }
 
     // environment reflection
     if (useEnvironment) {
