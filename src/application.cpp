@@ -309,6 +309,10 @@ public:
             m_hdrFramebuffer.bindDepthTexture(GL_TEXTURE1);
             glUniform1i(m_tonemapShader.getUniformLocation("depthTexture"), 1);
             glUniform1i(m_tonemapShader.getUniformLocation("useOutlines"), m_useOutlines);
+            glUniform1f(m_tonemapShader.getUniformLocation("depthThreshold"), m_depthThreshold);
+            glUniform1f(m_tonemapShader.getUniformLocation("nearPlane"), 0.1f);
+            glUniform1f(m_tonemapShader.getUniformLocation("farPlane"), m_cameraMode == 1 ? m_topCamera.height + 5.0f : 50.0f);
+            glUniform1i(m_tonemapShader.getUniformLocation("orthographic"), m_cameraMode == 1);
             m_hdrFramebuffer.drawFullscreenTriangle();
 
             m_window.swapBuffers();
@@ -452,6 +456,7 @@ private:
         }
         if (ImGui::CollapsingHeader("Outlines")) {
             ImGui::Checkbox("Outlines", &m_useOutlines);
+            ImGui::SliderFloat("Depth threshold", &m_depthThreshold, 0.05f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
         }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
@@ -531,6 +536,7 @@ private:
     float m_exposure { 1.0f };
     bool m_useTonemapping { false };
     bool m_useOutlines { true };
+    float m_depthThreshold { 0.3f };
 
     glm::vec3 m_lightDirection { 0.4f, 1.0f, 0.3f };
     glm::vec3 m_lightColor { 1.0f };
