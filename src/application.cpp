@@ -194,6 +194,11 @@ public:
             }
             glUniform1i(m_defaultShader.getUniformLocation("unlit"), false);
             glUniform1i(m_defaultShader.getUniformLocation("usePBR"), m_shadingModel == 1);
+
+            // environment
+            glUniform1i(m_defaultShader.getUniformLocation("useEnvironment"), m_useReflections);
+            m_skyboxTexture.bind(GL_TEXTURE5);
+            glUniform1i(m_defaultShader.getUniformLocation("environmentMap"), 5);
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
                     continue;
@@ -404,6 +409,7 @@ private:
         }
         if (ImGui::CollapsingHeader("Environment")) {
             ImGui::Checkbox("Skybox", &m_showSkybox);
+            ImGui::Checkbox("Reflections", &m_useReflections);
         }
         if (ImGui::CollapsingHeader("Light")) {
             ImGui::SliderFloat3("Direction", glm::value_ptr(m_lightDirection), -1.0f, 1.0f);
@@ -470,6 +476,7 @@ private:
     Texture m_metalNormal;
     Texture m_skyboxTexture;
     bool m_showSkybox { true };
+    bool m_useReflections { true };
     std::vector<SceneObject> m_objects;
 
     BezierPath m_path;

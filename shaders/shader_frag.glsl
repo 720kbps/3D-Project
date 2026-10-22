@@ -22,6 +22,8 @@ uniform vec3 lightColor;
 uniform float lightIntensity;
 uniform float ambientStrength;
 uniform vec3 cameraPosition;
+uniform bool useEnvironment;
+uniform samplerCube environmentMap;
 
 uniform vec3 pointLightPositions[2];
 uniform vec3 pointLightRadiances[2];
@@ -126,6 +128,14 @@ void main()
 
     // ambient, darkened in crevices
     color += albedo * ambientStrength * ao;
+
+    // environment reflection
+    if (useEnvironment) {
+        vec3 R = reflect(-V, N);
+        vec3 F0 = mix(vec3(0.04), albedo, metallic);
+        vec3 F = fresnelSchlick(max(dot(N, V), 0.0), F0);
+        color += texture(environmentMap, R).rgb * F * ao;
+    }
 
     fragColor = vec4(color, 1.0);
 }
