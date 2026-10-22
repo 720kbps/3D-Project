@@ -41,6 +41,7 @@ struct SceneObject {
     const Texture* albedoMap { nullptr };
     const Texture* roughnessMap { nullptr };
     const Texture* metallicMap { nullptr };
+    const Texture* aoMap { nullptr };
     bool visible { true };
     float roughness { 0.5f };
     float metallic { 0.0f };
@@ -59,6 +60,7 @@ public:
         , m_metalAlbedo(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Color.jpg", ColorSpace::Srgb)
         , m_metalRoughness(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Roughness.jpg", ColorSpace::Linear)
         , m_metalMetallic(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Metalness.jpg", ColorSpace::Linear)
+        , m_metalAo(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_AmbientOcclusion.jpg", ColorSpace::Linear)
     {
         // input callbacks
         m_window.registerKeyCallback([this](int key, int /* scancode */, int action, int mods) {
@@ -214,6 +216,12 @@ public:
                     object.metallicMap->bind(GL_TEXTURE2);
                     glUniform1i(m_defaultShader.getUniformLocation("metallicMap"), 2);
                 }
+                const bool useAoMap = object.aoMap && m_useAoMaps;
+                glUniform1i(m_defaultShader.getUniformLocation("hasAoMap"), useAoMap);
+                if (useAoMap) {
+                    object.aoMap->bind(GL_TEXTURE3);
+                    glUniform1i(m_defaultShader.getUniformLocation("aoMap"), 3);
+                }
 
                 for (const GPUMesh& mesh : *object.meshes)
                     mesh.draw();
@@ -319,6 +327,7 @@ private:
         m_objects.push_back({ "Cube", &m_cubeMesh, cubeModel, glm::vec3(1.0f), &m_metalAlbedo });
         m_objects.back().roughnessMap = &m_metalRoughness;
         m_objects.back().metallicMap = &m_metalMetallic;
+        m_objects.back().aoMap = &m_metalAo;
 
         // cart riding the path
         m_objects.push_back({ "Cart", &m_sphereMesh, glm::mat4(1.0f), srgb(0.95f, 0.95f, 0.95f) });
@@ -337,6 +346,7 @@ private:
         ImGui::Checkbox("Albedo maps", &m_useAlbedoMaps);
         ImGui::Checkbox("Roughness maps", &m_useRoughnessMaps);
         ImGui::Checkbox("Metallic maps", &m_useMetallicMaps);
+        ImGui::Checkbox("AO maps", &m_useAoMaps);
         const char* shadingModels[] = { "Blinn-Phong", "PBR" };
         ImGui::Combo("Shading", &m_shadingModel, shadingModels, 2);
         if (ImGui::CollapsingHeader("Camera")) {
@@ -417,6 +427,7 @@ private:
     Texture m_metalAlbedo;
     Texture m_metalRoughness;
     Texture m_metalMetallic;
+    Texture m_metalAo;
     std::vector<SceneObject> m_objects;
 
     BezierPath m_path;
@@ -427,6 +438,7 @@ private:
     bool m_useAlbedoMaps { true };
     bool m_useRoughnessMaps { true };
     bool m_useMetallicMaps { true };
+    bool m_useAoMaps { true };
     int m_shadingModel { 1 };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };

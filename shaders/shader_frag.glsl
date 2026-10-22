@@ -9,6 +9,8 @@ uniform sampler2D roughnessMap;
 uniform float baseMetallic;
 uniform bool hasMetallicMap;
 uniform sampler2D metallicMap;
+uniform bool hasAoMap;
+uniform sampler2D aoMap;
 uniform bool unlit;
 uniform bool usePBR;
 
@@ -90,6 +92,7 @@ void main()
     float roughness = hasRoughnessMap ? texture(roughnessMap, fragTexCoord).r : baseRoughness;
     roughness = max(roughness, 0.05);
     float metallic = hasMetallicMap ? texture(metallicMap, fragTexCoord).r : baseMetallic;
+    float ao = hasAoMap ? texture(aoMap, fragTexCoord).r : 1.0;
     if (unlit) {
         fragColor = vec4(albedo, 1.0);
         return;
@@ -108,8 +111,8 @@ void main()
         color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared, albedo, roughness, metallic);
     }
 
-    // ambient
-    color += albedo * ambientStrength;
+    // ambient, darkened in crevices
+    color += albedo * ambientStrength * ao;
 
     fragColor = vec4(color, 1.0);
 }
