@@ -63,6 +63,10 @@ public:
         , m_metalMetallic(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Metalness.jpg", ColorSpace::Linear)
         , m_metalAo(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_AmbientOcclusion.jpg", ColorSpace::Linear)
         , m_metalNormal(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_NormalGL.jpg", ColorSpace::Linear)
+        , m_skyboxTexture({ RESOURCE_ROOT "resources/skybox/px.png", RESOURCE_ROOT "resources/skybox/nx.png",
+                              RESOURCE_ROOT "resources/skybox/py.png", RESOURCE_ROOT "resources/skybox/ny.png",
+                              RESOURCE_ROOT "resources/skybox/pz.png", RESOURCE_ROOT "resources/skybox/nz.png" },
+              ColorSpace::Srgb)
     {
         // input callbacks
         m_window.registerKeyCallback([this](int key, int /* scancode */, int action, int mods) {
@@ -108,6 +112,11 @@ public:
             bezierBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/bezier_vert.glsl");
             bezierBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/bezier_frag.glsl");
             m_bezierShader = bezierBuilder.build();
+
+            ShaderBuilder skyboxBuilder;
+            skyboxBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/skybox_vert.glsl");
+            skyboxBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/skybox_frag.glsl");
+            m_skyboxShader = skyboxBuilder.build();
         } catch (const ShaderLoadingException& e) {
             std::cerr << e.what() << std::endl;
         }
@@ -253,6 +262,20 @@ public:
                     mesh.draw();
             }
 
+            // draw the skybox (camera rotation only, always perspective)
+            if (m_showSkybox) {
+                const glm::mat4 skyProjection = glm::perspective(glm::radians(60.0f), aspectRatio, 0.1f, 50.0f);
+                const glm::mat4 skyViewProjection = skyProjection * glm::mat4(glm::mat3(viewMatrix));
+                glDepthFunc(GL_LEQUAL);
+                m_skyboxShader.bind();
+                glUniformMatrix4fv(m_skyboxShader.getUniformLocation("viewProjection"), 1, GL_FALSE, glm::value_ptr(skyViewProjection));
+                m_skyboxTexture.bind(GL_TEXTURE5);
+                glUniform1i(m_skyboxShader.getUniformLocation("skybox"), 5);
+                for (const GPUMesh& mesh : m_cubeMesh)
+                    mesh.draw();
+                glDepthFunc(GL_LESS);
+            }
+
             // draw the path
             if (m_showPath) {
                 m_bezierShader.bind();
@@ -379,6 +402,9 @@ private:
             if (ImGui::Checkbox("VSync", &m_vsync))
                 glfwSwapInterval(m_vsync ? 1 : 0);
         }
+        if (ImGui::CollapsingHeader("Environment")) {
+            ImGui::Checkbox("Skybox", &m_showSkybox);
+        }
         if (ImGui::CollapsingHeader("Light")) {
             ImGui::SliderFloat3("Direction", glm::value_ptr(m_lightDirection), -1.0f, 1.0f);
             ImGui::ColorEdit3("Color", glm::value_ptr(m_lightColor));
@@ -432,6 +458,7 @@ private:
     Shader m_shadowShader;
     Shader m_tonemapShader;
     Shader m_bezierShader;
+    Shader m_skyboxShader;
 
     HdrFramebuffer m_hdrFramebuffer;
 
@@ -441,6 +468,8 @@ private:
     Texture m_metalMetallic;
     Texture m_metalAo;
     Texture m_metalNormal;
+    Texture m_skyboxTexture;
+    bool m_showSkybox { true };
     std::vector<SceneObject> m_objects;
 
     BezierPath m_path;
