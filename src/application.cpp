@@ -42,6 +42,7 @@ struct SceneObject {
     const Texture* roughnessMap { nullptr };
     const Texture* metallicMap { nullptr };
     const Texture* aoMap { nullptr };
+    const Texture* normalMap { nullptr };
     bool visible { true };
     float roughness { 0.5f };
     float metallic { 0.0f };
@@ -61,6 +62,7 @@ public:
         , m_metalRoughness(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Roughness.jpg", ColorSpace::Linear)
         , m_metalMetallic(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_Metalness.jpg", ColorSpace::Linear)
         , m_metalAo(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_AmbientOcclusion.jpg", ColorSpace::Linear)
+        , m_metalNormal(RESOURCE_ROOT "resources/painted_metal/PaintedMetal006_1K-JPG_NormalGL.jpg", ColorSpace::Linear)
     {
         // input callbacks
         m_window.registerKeyCallback([this](int key, int /* scancode */, int action, int mods) {
@@ -222,6 +224,13 @@ public:
                     object.aoMap->bind(GL_TEXTURE3);
                     glUniform1i(m_defaultShader.getUniformLocation("aoMap"), 3);
                 }
+                const bool useNormalMap = object.normalMap && m_useNormalMaps;
+                glUniform1i(m_defaultShader.getUniformLocation("hasNormalMap"), useNormalMap);
+                if (useNormalMap) {
+                    object.normalMap->bind(GL_TEXTURE4);
+                    glUniform1i(m_defaultShader.getUniformLocation("normalMap"), 4);
+                    glUniform1f(m_defaultShader.getUniformLocation("normalStrength"), m_normalStrength);
+                }
 
                 for (const GPUMesh& mesh : *object.meshes)
                     mesh.draw();
@@ -328,6 +337,7 @@ private:
         m_objects.back().roughnessMap = &m_metalRoughness;
         m_objects.back().metallicMap = &m_metalMetallic;
         m_objects.back().aoMap = &m_metalAo;
+        m_objects.back().normalMap = &m_metalNormal;
 
         // cart riding the path
         m_objects.push_back({ "Cart", &m_sphereMesh, glm::mat4(1.0f), srgb(0.95f, 0.95f, 0.95f) });
@@ -347,6 +357,8 @@ private:
         ImGui::Checkbox("Roughness maps", &m_useRoughnessMaps);
         ImGui::Checkbox("Metallic maps", &m_useMetallicMaps);
         ImGui::Checkbox("AO maps", &m_useAoMaps);
+        ImGui::Checkbox("Normal maps", &m_useNormalMaps);
+        ImGui::SliderFloat("Normal strength", &m_normalStrength, 0.0f, 3.0f);
         const char* shadingModels[] = { "Blinn-Phong", "PBR" };
         ImGui::Combo("Shading", &m_shadingModel, shadingModels, 2);
         if (ImGui::CollapsingHeader("Camera")) {
@@ -428,6 +440,7 @@ private:
     Texture m_metalRoughness;
     Texture m_metalMetallic;
     Texture m_metalAo;
+    Texture m_metalNormal;
     std::vector<SceneObject> m_objects;
 
     BezierPath m_path;
@@ -439,6 +452,8 @@ private:
     bool m_useRoughnessMaps { true };
     bool m_useMetallicMaps { true };
     bool m_useAoMaps { true };
+    bool m_useNormalMaps { true };
+    float m_normalStrength { 1.0f };
     int m_shadingModel { 1 };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };

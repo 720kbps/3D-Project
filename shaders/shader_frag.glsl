@@ -11,6 +11,9 @@ uniform bool hasMetallicMap;
 uniform sampler2D metallicMap;
 uniform bool hasAoMap;
 uniform sampler2D aoMap;
+uniform bool hasNormalMap;
+uniform sampler2D normalMap;
+uniform float normalStrength;
 uniform bool unlit;
 uniform bool usePBR;
 
@@ -99,6 +102,16 @@ void main()
     }
 
     vec3 N = normalize(fragNormal);
+
+    // normal map: tangent space -> world space
+    if (hasNormalMap) {
+        vec3 T = normalize(fragTangent.xyz - dot(fragTangent.xyz, N) * N);
+        vec3 B = cross(N, T) * fragTangent.w;
+        mat3 TBN = mat3(T, B, N);
+        vec3 mapNormal = texture(normalMap, fragTexCoord).rgb * 2.0 - 1.0;
+        mapNormal.xy *= normalStrength;
+        N = normalize(TBN * mapNormal);
+    }
     vec3 V = normalize(cameraPosition - fragPosition);
 
     // sun
