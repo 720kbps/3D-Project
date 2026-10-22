@@ -8,6 +8,9 @@ uniform bool useOutlines;
 uniform float depthThreshold;
 uniform sampler2D normalTexture;
 uniform float normalThreshold;
+uniform float outlineThickness;
+uniform vec3 inkColor;
+uniform bool showEdgeView;
 uniform float nearPlane;
 uniform float farPlane;
 uniform bool orthographic;
@@ -29,7 +32,7 @@ float linearDepth(vec2 uv)
 // Sobel: how fast the depth changes around this pixel
 float depthEdge()
 {
-    vec2 texel = 1.0 / vec2(textureSize(depthTexture, 0));
+    vec2 texel = outlineThickness / vec2(textureSize(depthTexture, 0));
 
     // 3x3 neighbourhood
     float d[9];
@@ -48,7 +51,7 @@ float depthEdge()
 // Sobel: how fast the surface direction changes around this pixel
 float normalEdge()
 {
-    vec2 texel = 1.0 / vec2(textureSize(normalTexture, 0));
+    vec2 texel = outlineThickness / vec2(textureSize(normalTexture, 0));
 
     // 3x3 neighbourhood
     vec3 n[9];
@@ -64,12 +67,21 @@ float normalEdge()
 
 void main()
 {
+    // edge detection
+    bool isEdge = depthEdge() > depthThreshold || normalEdge() > normalThreshold;
+
+    // debug view: white edges on black
+    if (showEdgeView) {
+        fragColor = vec4(vec3(isEdge ? 1.0 : 0.0), 1.0);
+        return;
+    }
+
     // exposure
     vec3 color = texture(hdrColor, texCoord).rgb * exposure;
 
     // outlines
-    if (useOutlines && (depthEdge() > depthThreshold || normalEdge() > normalThreshold))
-        color = vec3(0.0);
+    if (useOutlines && isEdge)
+        color = inkColor;
 
     // tonemap (Reinhard)
     if (useTonemapping)

@@ -314,6 +314,9 @@ public:
             m_hdrFramebuffer.bindNormalTexture(GL_TEXTURE2);
             glUniform1i(m_tonemapShader.getUniformLocation("normalTexture"), 2);
             glUniform1f(m_tonemapShader.getUniformLocation("normalThreshold"), m_normalThreshold);
+            glUniform1f(m_tonemapShader.getUniformLocation("outlineThickness"), m_outlineThickness);
+            glUniform3fv(m_tonemapShader.getUniformLocation("inkColor"), 1, glm::value_ptr(m_inkColor));
+            glUniform1i(m_tonemapShader.getUniformLocation("showEdgeView"), m_showEdgeView);
             glUniform1f(m_tonemapShader.getUniformLocation("depthThreshold"), m_depthThreshold);
             glUniform1f(m_tonemapShader.getUniformLocation("nearPlane"), 0.1f);
             glUniform1f(m_tonemapShader.getUniformLocation("farPlane"), m_cameraMode == 1 ? m_topCamera.height + 5.0f : 50.0f);
@@ -463,6 +466,9 @@ private:
             ImGui::Checkbox("Show outlines", &m_useOutlines);
             ImGui::SliderFloat("Depth threshold", &m_depthThreshold, 0.05f, 2.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::SliderFloat("Normal threshold", &m_normalThreshold, 0.1f, 4.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
+            ImGui::SliderFloat("Thickness", &m_outlineThickness, 1.0f, 3.0f);
+            ImGui::ColorEdit3("Ink color", glm::value_ptr(m_inkColor));
+            ImGui::Checkbox("Debug: show edges only", &m_showEdgeView);
         }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
@@ -544,6 +550,9 @@ private:
     bool m_useOutlines { true };
     float m_depthThreshold { 0.3f };
     float m_normalThreshold { 1.0f };
+    float m_outlineThickness { 1.0f };
+    glm::vec3 m_inkColor { 0.0f };
+    bool m_showEdgeView { false };
 
     glm::vec3 m_lightDirection { 0.4f, 1.0f, 0.3f };
     glm::vec3 m_lightColor { 1.0f };
