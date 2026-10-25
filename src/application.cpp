@@ -5,6 +5,7 @@
 #include "features/bezier_path.h"
 #include "features/chase_camera.h"
 #include "features/orbit_camera.h"
+#include "features/robot_arm.h"
 #include "features/top_camera.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -143,6 +144,11 @@ public:
             const glm::vec3 cartPosition = m_path.position(m_time * m_cartSpeed);
             m_objects[m_cartIndex].modelMatrix = glm::scale(glm::translate(glm::mat4(1.0f), cartPosition), glm::vec3(0.15f));
             m_objects[m_cartIndex].visible = m_showPath;
+
+            // pose the robot arm parts
+            m_robotArm.update();
+            for (size_t i = 0; i < RobotArm::PartCount; ++i)
+                m_objects[m_robotFirstIndex + i].modelMatrix = m_robotArm.partMatrices()[i];
 
             // camera (ignore mouse while over the UI)
             m_camera.setUserInteraction(m_cameraMode == 0 && !ImGui::GetIO().WantCaptureMouse);
@@ -398,6 +404,21 @@ private:
         // cylinder
         const glm::mat4 cylinderModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-1.3f, 0.4f, 0.8f)), glm::vec3(0.5f, 0.8f, 0.5f));
         m_objects.push_back({ "Cylinder", &m_cylinderMesh, cylinderModel, srgb(0.6f, 0.35f, 0.75f) });
+
+        // robot arm, one object per part in RobotArm::Part order
+        const glm::vec3 robotOrange = srgb(0.95f, 0.45f, 0.1f);
+        const glm::vec3 robotGrey = srgb(0.25f, 0.25f, 0.28f);
+        m_robotFirstIndex = m_objects.size();
+        m_objects.push_back({ "Robot pedestal", &m_cylinderMesh, glm::mat4(1.0f), robotGrey });
+        m_objects.push_back({ "Robot turret", &m_cubeMesh, glm::mat4(1.0f), robotOrange });
+        m_objects.push_back({ "Robot shoulder", &m_sphereMesh, glm::mat4(1.0f), robotGrey });
+        m_objects.push_back({ "Robot upper arm", &m_cubeMesh, glm::mat4(1.0f), robotOrange });
+        m_objects.push_back({ "Robot elbow", &m_sphereMesh, glm::mat4(1.0f), robotGrey });
+        m_objects.push_back({ "Robot forearm", &m_cubeMesh, glm::mat4(1.0f), robotOrange });
+        m_objects.push_back({ "Robot wrist", &m_sphereMesh, glm::mat4(1.0f), robotGrey });
+        m_objects.push_back({ "Robot hand", &m_cubeMesh, glm::mat4(1.0f), robotOrange });
+        m_objects.push_back({ "Robot left finger", &m_cubeMesh, glm::mat4(1.0f), robotGrey });
+        m_objects.push_back({ "Robot right finger", &m_cubeMesh, glm::mat4(1.0f), robotGrey });
     }
 
     void drawUI()
@@ -433,6 +454,17 @@ private:
         if (ImGui::CollapsingHeader("Bezier path")) {
             ImGui::Checkbox("Show path and cart", &m_showPath);
             ImGui::SliderFloat("Cart speed", &m_cartSpeed, 0.0f, 2.0f, "%.2f segments/s");
+        }
+        if (ImGui::CollapsingHeader("Robot arm")) {
+            if (ImGui::Checkbox("Show robot arm", &m_showRobotArm)) {
+                for (size_t i = 0; i < RobotArm::PartCount; ++i)
+                    m_objects[m_robotFirstIndex + i].visible = m_showRobotArm;
+            }
+            ImGui::SliderAngle("Turret", &m_robotArm.turretAngle, -180.0f, 180.0f);
+            ImGui::SliderAngle("Shoulder", &m_robotArm.shoulderAngle, -90.0f, 90.0f);
+            ImGui::SliderAngle("Elbow", &m_robotArm.elbowAngle, -135.0f, 135.0f);
+            ImGui::SliderAngle("Wrist", &m_robotArm.wristAngle, -135.0f, 135.0f);
+            ImGui::SliderAngle("Grip", &m_robotArm.gripAngle, 0.0f, 45.0f);
         }
         if (ImGui::CollapsingHeader("Time")) {
             ImGui::Text("Time: %.2f s", static_cast<double>(m_time));
@@ -525,6 +557,10 @@ private:
     size_t m_cartIndex { 0 };
     float m_cartSpeed { 0.3f };
     bool m_showPath { true };
+
+    RobotArm m_robotArm;
+    size_t m_robotFirstIndex { 0 };
+    bool m_showRobotArm { true };
 
     bool m_useAlbedoMaps { true };
     bool m_useRoughnessMaps { true };
