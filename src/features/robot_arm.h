@@ -24,10 +24,11 @@ public:
         PartCount
     };
 
-    void update();
+    void update(float time);
     const std::array<glm::mat4, PartCount>& partMatrices() const;
 
     glm::vec3 position { 0.0f, 0.0f, -1.6f };
+    bool animate { true };
 
     // joint angles in radians
     float turretAngle { 0.0f };

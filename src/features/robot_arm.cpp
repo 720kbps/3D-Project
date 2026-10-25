@@ -3,6 +3,7 @@
 DISABLE_WARNINGS_PUSH()
 #include <glm/gtc/matrix_transform.hpp>
 DISABLE_WARNINGS_POP()
+#include <cmath>
 
 namespace {
 // part sizes (x, length along y, z)
@@ -32,8 +33,19 @@ glm::mat4 jointOnFrame(const glm::mat4& frame, float diameter)
 }
 }
 
-void RobotArm::update()
+void RobotArm::update(float time)
 {
+    // idle motion: a sine wave that travels from the shoulder to the wrist
+    if (animate) {
+        const float wave = 0.8f * time;
+        const float phaseOffset = 0.6f;
+        turretAngle = 0.6f * std::sin(0.3f * time);
+        shoulderAngle = 0.4f + 0.25f * std::sin(wave);
+        elbowAngle = 0.9f + 0.35f * std::sin(wave - phaseOffset);
+        wristAngle = 0.5f + 0.4f * std::sin(wave - 2.0f * phaseOffset);
+        gripAngle = 0.25f + 0.25f * std::sin(2.0f * wave);
+    }
+
     // pedestal: fixed on the ground
     const glm::mat4 baseFrame = glm::translate(glm::mat4(1.0f), position);
     m_partMatrices[Pedestal] = partOnFrame(baseFrame, pedestalSize);

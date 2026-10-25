@@ -146,7 +146,7 @@ public:
             m_objects[m_cartIndex].visible = m_showPath;
 
             // pose the robot arm parts
-            m_robotArm.update();
+            m_robotArm.update(m_time);
             for (size_t i = 0; i < RobotArm::PartCount; ++i)
                 m_objects[m_robotFirstIndex + i].modelMatrix = m_robotArm.partMatrices()[i];
 
@@ -460,11 +460,14 @@ private:
                 for (size_t i = 0; i < RobotArm::PartCount; ++i)
                     m_objects[m_robotFirstIndex + i].visible = m_showRobotArm;
             }
-            ImGui::SliderAngle("Turret", &m_robotArm.turretAngle, -180.0f, 180.0f);
-            ImGui::SliderAngle("Shoulder", &m_robotArm.shoulderAngle, -90.0f, 90.0f);
-            ImGui::SliderAngle("Elbow", &m_robotArm.elbowAngle, -135.0f, 135.0f);
-            ImGui::SliderAngle("Wrist", &m_robotArm.wristAngle, -135.0f, 135.0f);
-            ImGui::SliderAngle("Grip", &m_robotArm.gripAngle, 0.0f, 45.0f);
+            ImGui::Checkbox("Animate", &m_robotArm.animate);
+            if (!m_robotArm.animate) {
+                ImGui::SliderAngle("Turret", &m_robotArm.turretAngle, -180.0f, 180.0f);
+                ImGui::SliderAngle("Shoulder", &m_robotArm.shoulderAngle, -90.0f, 90.0f);
+                ImGui::SliderAngle("Elbow", &m_robotArm.elbowAngle, -135.0f, 135.0f);
+                ImGui::SliderAngle("Wrist", &m_robotArm.wristAngle, -135.0f, 135.0f);
+                ImGui::SliderAngle("Grip", &m_robotArm.gripAngle, 0.0f, 45.0f);
+            }
         }
         if (ImGui::CollapsingHeader("Time")) {
             ImGui::Text("Time: %.2f s", static_cast<double>(m_time));
