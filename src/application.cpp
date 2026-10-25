@@ -234,6 +234,8 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("shadowMap"), 6);
             glUniformMatrix4fv(m_defaultShader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMatrix));
             glUniform1i(m_defaultShader.getUniformLocation("showLightDepth"), m_showLightDepth);
+            glUniform1i(m_defaultShader.getUniformLocation("useShadows"), m_useShadows);
+            glUniform1f(m_defaultShader.getUniformLocation("shadowBias"), m_shadowBias);
 
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
@@ -514,6 +516,8 @@ private:
             ImGui::SliderFloat("Ambient", &m_ambientStrength, 0.0f, 0.5f);
         }
         if (ImGui::CollapsingHeader("Shadows")) {
+            ImGui::Checkbox("Sun shadows", &m_useShadows);
+            ImGui::SliderFloat("Bias", &m_shadowBias, 0.0f, 0.01f, "%.4f");
             ImGui::Checkbox("Debug: show shadow map depth", &m_showLightDepth);
         }
         if (ImGui::CollapsingHeader("Point lights")) {
@@ -577,6 +581,8 @@ private:
     HdrFramebuffer m_hdrFramebuffer;
     ShadowMap m_shadowMap;
     bool m_showLightDepth { false };
+    bool m_useShadows { true };
+    float m_shadowBias { 0.001f };
 
     std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
     Texture m_metalAlbedo;
