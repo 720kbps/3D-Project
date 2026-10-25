@@ -4,8 +4,11 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/mat4x4.hpp>
 #include <glm/vec3.hpp>
 DISABLE_WARNINGS_POP()
+#include "core/mesh.h"
 #include <array>
 #include <cstddef>
+#include <framework/shader.h>
+#include <vector>
 
 class RobotArm {
 public:
@@ -26,6 +29,7 @@ public:
 
     void update(float time);
     const std::array<glm::mat4, PartCount>& partMatrices() const;
+    void drawJointAxes(const Shader& shader, const glm::mat4& viewProjection, const std::vector<GPUMesh>& cubeMesh) const;
 
     glm::vec3 position { 0.0f, 0.0f, -1.6f };
     bool animate { true };
@@ -39,4 +43,7 @@ public:
 
 private:
     std::array<glm::mat4, PartCount> m_partMatrices {};
+
+    // joint frames, from the base to the fingers
+    std::array<glm::mat4, 7> m_jointFrames {};
 };

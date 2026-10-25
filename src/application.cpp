@@ -329,6 +329,12 @@ public:
             glUniform1i(m_tonemapShader.getUniformLocation("orthographic"), m_cameraMode == 1);
             m_hdrFramebuffer.drawFullscreenTriangle();
 
+            // robot arm joint axes, on top of the final image
+            if (m_showRobotArm && m_showJointAxes) {
+                m_defaultShader.bind();
+                m_robotArm.drawJointAxes(m_defaultShader, projectionMatrix * viewMatrix, m_cubeMesh);
+            }
+
             m_window.swapBuffers();
         }
     }
@@ -460,6 +466,7 @@ private:
                 for (size_t i = 0; i < RobotArm::PartCount; ++i)
                     m_objects[m_robotFirstIndex + i].visible = m_showRobotArm;
             }
+            ImGui::Checkbox("Show joint axes", &m_showJointAxes);
             ImGui::Checkbox("Animate", &m_robotArm.animate);
             if (!m_robotArm.animate) {
                 ImGui::SliderAngle("Turret", &m_robotArm.turretAngle, -180.0f, 180.0f);
@@ -564,6 +571,7 @@ private:
     RobotArm m_robotArm;
     size_t m_robotFirstIndex { 0 };
     bool m_showRobotArm { true };
+    bool m_showJointAxes { false };
 
     bool m_useAlbedoMaps { true };
     bool m_useRoughnessMaps { true };

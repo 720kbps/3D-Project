@@ -2,6 +2,7 @@
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 DISABLE_WARNINGS_POP()
 #include <cmath>
 
@@ -88,6 +89,32 @@ void RobotArm::update(float time)
         * glm::translate(glm::mat4(1.0f), glm::vec3(fingerOffset, handSize.y, 0.0f))
         * glm::rotate(glm::mat4(1.0f), -gripAngle, zAxis);
     m_partMatrices[RightFinger] = partOnFrame(rightFingerFrame, fingerSize);
+
+    // keep the frames for the axes view
+    m_jointFrames = { baseFrame, turretFrame, shoulderFrame, elbowFrame, wristFrame, leftFingerFrame, rightFingerFrame };
+}
+
+void RobotArm::drawJointAxes(const Shader& shader, const glm::mat4& viewProjection, const std::vector<GPUMesh>& cubeMesh) const
+{
+    // flat colour, no texture
+    glUniform1i(shader.getUniformLocation("unlit"), true);
+    glUniform1i(shader.getUniformLocation("hasAlbedoMap"), false);
+
+    // a thin box along each axis of every frame: x red, y green, z blue
+    const float axisLength = 0.2f;
+    const float axisWidth = 0.01f;
+    for (const glm::mat4& frame : m_jointFrames) {
+        for (const glm::vec3& axis : { xAxis, yAxis, zAxis }) {
+            const glm::mat4 model = frame
+                * glm::translate(glm::mat4(1.0f), 0.5f * axisLength * axis)
+                * glm::scale(glm::mat4(1.0f), glm::vec3(axisWidth) + axisLength * axis);
+            const glm::mat4 mvpMatrix = viewProjection * model;
+            glUniformMatrix4fv(shader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glUniform3fv(shader.getUniformLocation("baseColor"), 1, glm::value_ptr(axis));
+            for (const GPUMesh& mesh : cubeMesh)
+                mesh.draw();
+        }
+    }
 }
 
 const std::array<glm::mat4, RobotArm::PartCount>& RobotArm::partMatrices() const
