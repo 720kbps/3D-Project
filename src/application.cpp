@@ -6,6 +6,7 @@
 #include "features/chase_camera.h"
 #include "features/orbit_camera.h"
 #include "features/robot_arm.h"
+#include "features/shadow_map.h"
 #include "features/top_camera.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -169,6 +170,19 @@ public:
             if (m_cameraMode == 3)
                 viewMatrix = m_chaseCamera.viewMatrix(cartPosition);
 
+            // shadow map: depth of the scene seen from the sun
+            const glm::mat4 lightMatrix = m_shadowMap.lightMatrix(m_lightDirection);
+            m_shadowMap.bind();
+            m_shadowShader.bind();
+            for (const SceneObject& object : m_objects) {
+                if (!object.visible)
+                    continue;
+                const glm::mat4 lightMvp = lightMatrix * object.modelMatrix;
+                glUniformMatrix4fv(m_shadowShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(lightMvp));
+                for (const GPUMesh& mesh : *object.meshes)
+                    mesh.draw();
+            }
+
             // render into the HDR framebuffer
             m_hdrFramebuffer.resize(framebufferSize);
             m_hdrFramebuffer.bind();
@@ -214,6 +228,13 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("useEnvironment"), m_useReflections);
             m_skyboxTexture.bind(GL_TEXTURE5);
             glUniform1i(m_defaultShader.getUniformLocation("environmentMap"), 5);
+
+            // sun shadows
+            m_shadowMap.bindTexture(GL_TEXTURE6);
+            glUniform1i(m_defaultShader.getUniformLocation("shadowMap"), 6);
+            glUniformMatrix4fv(m_defaultShader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMatrix));
+            glUniform1i(m_defaultShader.getUniformLocation("showLightDepth"), m_showLightDepth);
+
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
                     continue;
@@ -492,6 +513,9 @@ private:
             ImGui::SliderFloat("Intensity", &m_lightIntensity, 0.0f, 10.0f);
             ImGui::SliderFloat("Ambient", &m_ambientStrength, 0.0f, 0.5f);
         }
+        if (ImGui::CollapsingHeader("Shadows")) {
+            ImGui::Checkbox("Debug: show shadow map depth", &m_showLightDepth);
+        }
         if (ImGui::CollapsingHeader("Point lights")) {
             for (size_t i = 0; i < m_pointLights.size(); ++i) {
                 PointLight& light = m_pointLights[i];
@@ -551,6 +575,8 @@ private:
     Shader m_skyboxShader;
 
     HdrFramebuffer m_hdrFramebuffer;
+    ShadowMap m_shadowMap;
+    bool m_showLightDepth { false };
 
     std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
     Texture m_metalAlbedo;

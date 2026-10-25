@@ -21,6 +21,7 @@ add_executable(Master_TechDemo
     "src/features/chase_camera.cpp"
     "src/features/orbit_camera.cpp"
     "src/features/robot_arm.cpp"
+    "src/features/shadow_map.cpp"
     "src/features/top_camera.cpp"
 )
 target_include_directories(Master_TechDemo PRIVATE "${CMAKE_CURRENT_LIST_DIR}/src")

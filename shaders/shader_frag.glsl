@@ -35,6 +35,10 @@ uniform samplerCube environmentMap;
 uniform vec3 pointLightPositions[2];
 uniform vec3 pointLightRadiances[2];
 
+uniform sampler2D shadowMap;
+uniform mat4 lightMVP;
+uniform bool showLightDepth;
+
 in vec3 fragPosition;
 in vec3 fragNormal;
 in vec2 fragTexCoord;
@@ -118,6 +122,14 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
     return diffuse * radiance * diffuseLight + specular * radiance * NdotL;
 }
 
+// where this point lands in the sun's shadow map: xy = texture coordinate, z = depth
+vec3 shadowMapPosition()
+{
+    vec4 fragLightCoord = lightMVP * vec4(fragPosition, 1.0);
+    fragLightCoord.xyz /= fragLightCoord.w;
+    return fragLightCoord.xyz * 0.5 + 0.5;
+}
+
 void main()
 {
     // surface normal for the outline pass (without the normal map)
@@ -131,6 +143,13 @@ void main()
     float ao = hasAoMap ? texture(aoMap, fragTexCoord).r : 1.0;
     if (unlit) {
         fragColor = vec4(albedo, 1.0);
+        return;
+    }
+
+    // debug: the depth the sun sees at this point, as grey
+    if (showLightDepth) {
+        float shadowMapDepth = texture(shadowMap, shadowMapPosition().xy).x;
+        fragColor = vec4(vec3(shadowMapDepth), 1.0);
         return;
     }
 
