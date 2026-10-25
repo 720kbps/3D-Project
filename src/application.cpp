@@ -586,7 +586,7 @@ private:
     ShadowMap m_shadowMap;
     bool m_showLightDepth { false };
     bool m_useShadows { true };
-    float m_shadowBias { 0.001f };
+    float m_shadowBias { 0.003f };
     bool m_usePcf { true };
     int m_pcfRadius { 1 };
 
