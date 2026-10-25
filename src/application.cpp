@@ -236,6 +236,7 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("showLightDepth"), m_showLightDepth);
             glUniform1i(m_defaultShader.getUniformLocation("useShadows"), m_useShadows);
             glUniform1f(m_defaultShader.getUniformLocation("shadowBias"), m_shadowBias);
+            glUniform1i(m_defaultShader.getUniformLocation("pcfRadius"), m_usePcf ? m_pcfRadius : 0);
 
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
@@ -518,6 +519,9 @@ private:
         if (ImGui::CollapsingHeader("Shadows")) {
             ImGui::Checkbox("Sun shadows", &m_useShadows);
             ImGui::SliderFloat("Bias", &m_shadowBias, 0.0f, 0.01f, "%.4f");
+            ImGui::Checkbox("Soft edges (PCF)", &m_usePcf);
+            if (m_usePcf)
+                ImGui::SliderInt("PCF radius", &m_pcfRadius, 1, 4);
             ImGui::Checkbox("Debug: show shadow map depth", &m_showLightDepth);
         }
         if (ImGui::CollapsingHeader("Point lights")) {
@@ -583,6 +587,8 @@ private:
     bool m_showLightDepth { false };
     bool m_useShadows { true };
     float m_shadowBias { 0.001f };
+    bool m_usePcf { true };
+    int m_pcfRadius { 1 };
 
     std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
     Texture m_metalAlbedo;

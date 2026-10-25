@@ -40,6 +40,7 @@ uniform mat4 lightMVP;
 uniform bool showLightDepth;
 uniform bool useShadows;
 uniform float shadowBias;
+uniform int pcfRadius;
 
 in vec3 fragPosition;
 in vec3 fragNormal;
@@ -132,7 +133,7 @@ vec3 shadowMapPosition()
     return fragLightCoord.xyz * 0.5 + 0.5;
 }
 
-// 1 if the sun reaches this point, 0 if something closer to the sun blocks it
+// how much of the sun reaches this point: 1 lit, 0 in shadow
 float sunVisibility()
 {
     vec3 p = shadowMapPosition();
@@ -141,9 +142,18 @@ float sunVisibility()
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0)
         return 1.0;
 
-    // shadow test with a small bias against self-shadowing
-    float shadowMapDepth = texture(shadowMap, p.xy).x;
-    return p.z - shadowBias > shadowMapDepth ? 0.0 : 1.0;
+    // shadow test on a square of texels around the point (PCF), with a small bias against self-shadowing
+    vec2 texelSize = 1.0 / vec2(textureSize(shadowMap, 0));
+    float litSamples = 0.0;
+    for (int y = -pcfRadius; y <= pcfRadius; ++y) {
+        for (int x = -pcfRadius; x <= pcfRadius; ++x) {
+            float shadowMapDepth = texture(shadowMap, p.xy + vec2(x, y) * texelSize).x;
+            if (p.z - shadowBias <= shadowMapDepth)
+                litSamples += 1.0;
+        }
+    }
+    float sampleCount = float((2 * pcfRadius + 1) * (2 * pcfRadius + 1));
+    return litSamples / sampleCount;
 }
 
 void main()
