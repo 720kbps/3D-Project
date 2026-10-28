@@ -14,7 +14,7 @@ public:
     ~ShadowMap();
 
     // projection * view of the sun, shining from lightDirection
-    glm::mat4 lightMatrix(const glm::vec3& lightDirection) const;
+    static glm::mat4 sunMatrix(const glm::vec3& lightDirection);
 
     void bind() const;
     void bindTexture(GLenum textureSlot) const;

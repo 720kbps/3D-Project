@@ -171,17 +171,8 @@ public:
                 viewMatrix = m_chaseCamera.viewMatrix(cartPosition);
 
             // shadow map: depth of the scene seen from the sun
-            const glm::mat4 lightMatrix = m_shadowMap.lightMatrix(m_lightDirection);
-            m_shadowMap.bind();
-            m_shadowShader.bind();
-            for (const SceneObject& object : m_objects) {
-                if (!object.visible)
-                    continue;
-                const glm::mat4 lightMvp = lightMatrix * object.modelMatrix;
-                glUniformMatrix4fv(m_shadowShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(lightMvp));
-                for (const GPUMesh& mesh : *object.meshes)
-                    mesh.draw();
-            }
+            const glm::mat4 sunMatrix = ShadowMap::sunMatrix(m_lightDirection);
+            renderShadowMap(m_sunShadowMap, sunMatrix);
 
             // render into the HDR framebuffer
             m_hdrFramebuffer.resize(framebufferSize);
@@ -230,9 +221,9 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("environmentMap"), 5);
 
             // sun shadows
-            m_shadowMap.bindTexture(GL_TEXTURE6);
-            glUniform1i(m_defaultShader.getUniformLocation("shadowMap"), 6);
-            glUniformMatrix4fv(m_defaultShader.getUniformLocation("lightMVP"), 1, GL_FALSE, glm::value_ptr(lightMatrix));
+            m_sunShadowMap.bindTexture(GL_TEXTURE6);
+            glUniform1i(m_defaultShader.getUniformLocation("sunShadowMap"), 6);
+            glUniformMatrix4fv(m_defaultShader.getUniformLocation("sunLightMVP"), 1, GL_FALSE, glm::value_ptr(sunMatrix));
             glUniform1i(m_defaultShader.getUniformLocation("showLightDepth"), m_showLightDepth);
             glUniform1i(m_defaultShader.getUniformLocation("useShadows"), m_useShadows);
             glUniform1f(m_defaultShader.getUniformLocation("shadowBias"), m_shadowBias);
@@ -388,6 +379,21 @@ public:
     void onMouseReleased(int /* button */, int /* mods */) { }
 
 private:
+    void renderShadowMap(const ShadowMap& shadowMap, const glm::mat4& lightMatrix)
+    {
+        // depth of every visible object, seen from the light
+        shadowMap.bind();
+        m_shadowShader.bind();
+        for (const SceneObject& object : m_objects) {
+            if (!object.visible)
+                continue;
+            const glm::mat4 lightMvp = lightMatrix * object.modelMatrix;
+            glUniformMatrix4fv(m_shadowShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(lightMvp));
+            for (const GPUMesh& mesh : *object.meshes)
+                mesh.draw();
+        }
+    }
+
     void buildScene()
     {
         // load meshes
@@ -583,7 +589,7 @@ private:
     Shader m_skyboxShader;
 
     HdrFramebuffer m_hdrFramebuffer;
-    ShadowMap m_shadowMap;
+    ShadowMap m_sunShadowMap;
     bool m_showLightDepth { false };
     bool m_useShadows { true };
     float m_shadowBias { 0.003f };

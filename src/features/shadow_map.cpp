@@ -38,7 +38,7 @@ ShadowMap::~ShadowMap()
     glDeleteTextures(1, &m_texture);
 }
 
-glm::mat4 ShadowMap::lightMatrix(const glm::vec3& lightDirection) const
+glm::mat4 ShadowMap::sunMatrix(const glm::vec3& lightDirection)
 {
     // camera placed towards the sun, looking at the scene centre
     const glm::vec3 direction = glm::normalize(lightDirection);

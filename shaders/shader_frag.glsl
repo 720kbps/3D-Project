@@ -35,8 +35,8 @@ uniform samplerCube environmentMap;
 uniform vec3 pointLightPositions[2];
 uniform vec3 pointLightRadiances[2];
 
-uniform sampler2D shadowMap;
-uniform mat4 lightMVP;
+uniform sampler2D sunShadowMap;
+uniform mat4 sunLightMVP;
 uniform bool showLightDepth;
 uniform bool useShadows;
 uniform float shadowBias;
@@ -125,20 +125,20 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
     return diffuse * radiance * diffuseLight + specular * radiance * NdotL;
 }
 
-// where this point lands in the sun's shadow map: xy = texture coordinate, z = depth
-vec3 shadowMapPosition()
+// where this point lands in a light's shadow map: xy = texture coordinate, z = depth
+vec3 shadowMapPosition(mat4 lightMVP)
 {
     vec4 fragLightCoord = lightMVP * vec4(fragPosition, 1.0);
     fragLightCoord.xyz /= fragLightCoord.w;
     return fragLightCoord.xyz * 0.5 + 0.5;
 }
 
-// how much of the sun reaches this point: 1 lit, 0 in shadow
-float sunVisibility()
+// how much of a light reaches this point: 1 lit, 0 in shadow
+float shadowVisibility(sampler2D shadowMap, mat4 lightMVP, float bias)
 {
-    vec3 p = shadowMapPosition();
+    vec3 p = shadowMapPosition(lightMVP);
 
-    // outside the shadow map: nothing blocks the sun
+    // outside the shadow map: nothing blocks the light
     if (p.x < 0.0 || p.x > 1.0 || p.y < 0.0 || p.y > 1.0 || p.z > 1.0)
         return 1.0;
 
@@ -148,7 +148,7 @@ float sunVisibility()
     for (int y = -pcfRadius; y <= pcfRadius; ++y) {
         for (int x = -pcfRadius; x <= pcfRadius; ++x) {
             float shadowMapDepth = texture(shadowMap, p.xy + vec2(x, y) * texelSize).x;
-            if (p.z - shadowBias <= shadowMapDepth)
+            if (p.z - bias <= shadowMapDepth)
                 litSamples += 1.0;
         }
     }
@@ -174,7 +174,7 @@ void main()
 
     // debug: the depth the sun sees at this point, as grey
     if (showLightDepth) {
-        float shadowMapDepth = texture(shadowMap, shadowMapPosition().xy).x;
+        float shadowMapDepth = texture(sunShadowMap, shadowMapPosition(sunLightMVP).xy).x;
         fragColor = vec4(vec3(shadowMapDepth), 1.0);
         return;
     }
@@ -193,7 +193,7 @@ void main()
     vec3 V = normalize(cameraPosition - fragPosition);
 
     // sun, switched off where it is in shadow
-    float sunLight = useShadows ? sunVisibility() : 1.0;
+    float sunLight = useShadows ? shadowVisibility(sunShadowMap, sunLightMVP, shadowBias) : 1.0;
     vec3 color = shadeLight(N, V, normalize(lightDirection), lightColor * lightIntensity * sunLight, albedo, roughness, metallic);
 
     // point lights (inverse-square falloff)
