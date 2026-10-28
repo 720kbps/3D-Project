@@ -616,7 +616,7 @@ private:
     ShadowMap m_sunShadowMap;
     std::array<ShadowMap, 2> m_pointShadowMaps;
     bool m_usePointShadows { true };
-    float m_pointShadowBias { 0.001f };
+    float m_pointShadowBias { 0.004f };
     int m_debugShadowTest { 0 };
     bool m_showLightDepth { false };
     bool m_useShadows { true };
