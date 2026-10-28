@@ -11,6 +11,11 @@ constexpr float sunDistance = 6.0f;
 constexpr float boxHalfSize = 4.0f;
 constexpr float nearPlane = 0.5f;
 constexpr float farPlane = 12.0f;
+
+// cone below a point light
+constexpr float pointLightFov = 140.0f;
+constexpr float pointLightNear = 0.2f;
+constexpr float pointLightFar = 8.0f;
 }
 
 ShadowMap::ShadowMap()
@@ -47,6 +52,16 @@ glm::mat4 ShadowMap::sunMatrix(const glm::vec3& lightDirection)
 
     // sun rays are parallel, so the projection is orthographic
     const glm::mat4 projection = glm::ortho(-boxHalfSize, boxHalfSize, -boxHalfSize, boxHalfSize, nearPlane, farPlane);
+    return projection * view;
+}
+
+glm::mat4 ShadowMap::pointLightMatrix(const glm::vec3& lightPosition)
+{
+    // camera at the light, looking straight down
+    const glm::mat4 view = glm::lookAt(lightPosition, lightPosition - glm::vec3(0.0f, 1.0f, 0.0f), glm::vec3(0.0f, 0.0f, -1.0f));
+
+    // perspective like the light camera in exercise 4, square because the shadow map is square
+    const glm::mat4 projection = glm::perspective(glm::radians(pointLightFov), 1.0f, pointLightNear, pointLightFar);
     return projection * view;
 }
 

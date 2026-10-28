@@ -41,6 +41,10 @@ uniform bool showLightDepth;
 uniform bool useShadows;
 uniform float shadowBias;
 uniform int pcfRadius;
+uniform sampler2D pointShadowMaps[2];
+uniform mat4 pointLightMVPs[2];
+uniform float pointShadowBias;
+uniform int debugShadowTest;
 
 in vec3 fragPosition;
 in vec3 fragNormal;
@@ -176,6 +180,19 @@ void main()
     if (showLightDepth) {
         float shadowMapDepth = texture(sunShadowMap, shadowMapPosition(sunLightMVP).xy).x;
         fragColor = vec4(vec3(shadowMapDepth), 1.0);
+        return;
+    }
+
+    // debug: one light's shadow test, white = lit, black = in shadow
+    if (debugShadowTest > 0) {
+        float visibility = 1.0;
+        if (debugShadowTest == 1)
+            visibility = shadowVisibility(sunShadowMap, sunLightMVP, shadowBias);
+        if (debugShadowTest == 2)
+            visibility = shadowVisibility(pointShadowMaps[0], pointLightMVPs[0], pointShadowBias);
+        if (debugShadowTest == 3)
+            visibility = shadowVisibility(pointShadowMaps[1], pointLightMVPs[1], pointShadowBias);
+        fragColor = vec4(vec3(visibility), 1.0);
         return;
     }
 

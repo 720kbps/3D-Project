@@ -23,6 +23,7 @@ DISABLE_WARNINGS_PUSH()
 DISABLE_WARNINGS_POP()
 #include <framework/shader.h>
 #include <framework/window.h>
+#include <array>
 #include <functional>
 #include <iostream>
 #include <string>
@@ -174,6 +175,13 @@ public:
             const glm::mat4 sunMatrix = ShadowMap::sunMatrix(m_lightDirection);
             renderShadowMap(m_sunShadowMap, sunMatrix);
 
+            // shadow maps: depth of the scene seen from each point light
+            std::array<glm::mat4, 2> pointLightMatrices;
+            for (size_t i = 0; i < m_pointShadowMaps.size(); ++i) {
+                pointLightMatrices[i] = ShadowMap::pointLightMatrix(m_pointLights[i].position);
+                renderShadowMap(m_pointShadowMaps[i], pointLightMatrices[i]);
+            }
+
             // render into the HDR framebuffer
             m_hdrFramebuffer.resize(framebufferSize);
             m_hdrFramebuffer.bind();
@@ -228,6 +236,16 @@ public:
             glUniform1i(m_defaultShader.getUniformLocation("useShadows"), m_useShadows);
             glUniform1f(m_defaultShader.getUniformLocation("shadowBias"), m_shadowBias);
             glUniform1i(m_defaultShader.getUniformLocation("pcfRadius"), m_usePcf ? m_pcfRadius : 0);
+
+            // point light shadows, on texture slots 7 and 8
+            for (size_t i = 0; i < m_pointShadowMaps.size(); ++i) {
+                const std::string index = "[" + std::to_string(i) + "]";
+                m_pointShadowMaps[i].bindTexture(GL_TEXTURE7 + static_cast<GLenum>(i));
+                glUniform1i(m_defaultShader.getUniformLocation("pointShadowMaps" + index), 7 + static_cast<GLint>(i));
+                glUniformMatrix4fv(m_defaultShader.getUniformLocation("pointLightMVPs" + index), 1, GL_FALSE, glm::value_ptr(pointLightMatrices[i]));
+            }
+            glUniform1f(m_defaultShader.getUniformLocation("pointShadowBias"), m_pointShadowBias);
+            glUniform1i(m_defaultShader.getUniformLocation("debugShadowTest"), m_debugShadowTest);
 
             for (const SceneObject& object : m_objects) {
                 if (!object.visible)
@@ -528,7 +546,10 @@ private:
             ImGui::Checkbox("Soft edges (PCF)", &m_usePcf);
             if (m_usePcf)
                 ImGui::SliderInt("PCF radius", &m_pcfRadius, 1, 4);
+            ImGui::SliderFloat("Point light bias", &m_pointShadowBias, 0.0f, 0.01f, "%.4f");
             ImGui::Checkbox("Debug: show shadow map depth", &m_showLightDepth);
+            const char* shadowTests[] = { "Off", "Sun", "Point light 1", "Point light 2" };
+            ImGui::Combo("Debug: shadow test", &m_debugShadowTest, shadowTests, 4);
         }
         if (ImGui::CollapsingHeader("Point lights")) {
             for (size_t i = 0; i < m_pointLights.size(); ++i) {
@@ -590,6 +611,9 @@ private:
 
     HdrFramebuffer m_hdrFramebuffer;
     ShadowMap m_sunShadowMap;
+    std::array<ShadowMap, 2> m_pointShadowMaps;
+    float m_pointShadowBias { 0.001f };
+    int m_debugShadowTest { 0 };
     bool m_showLightDepth { false };
     bool m_useShadows { true };
     float m_shadowBias { 0.003f };
