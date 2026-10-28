@@ -44,6 +44,7 @@ uniform int pcfRadius;
 uniform sampler2D pointShadowMaps[2];
 uniform mat4 pointLightMVPs[2];
 uniform float pointShadowBias;
+uniform bool usePointShadows;
 uniform int debugShadowTest;
 
 in vec3 fragPosition;
@@ -217,7 +218,8 @@ void main()
     for (int i = 0; i < 2; ++i) {
         vec3 toLight = pointLightPositions[i] - fragPosition;
         float distanceSquared = dot(toLight, toLight);
-        color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared, albedo, roughness, metallic);
+        float pointLight = usePointShadows ? shadowVisibility(pointShadowMaps[i], pointLightMVPs[i], pointShadowBias) : 1.0;
+        color += shadeLight(N, V, normalize(toLight), pointLightRadiances[i] / distanceSquared * pointLight, albedo, roughness, metallic);
     }
 
     // ambient (cel: coloured shadow tint), darkened in crevices
