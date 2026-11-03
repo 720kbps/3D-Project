@@ -390,6 +390,8 @@ public:
             m_bloom.bindTexture(0, GL_TEXTURE3);
             glUniform1i(m_tonemapShader.getUniformLocation("bloomTexture"), 3);
             glUniform1i(m_tonemapShader.getUniformLocation("showBloomView"), m_showBloomView);
+            glUniform1i(m_tonemapShader.getUniformLocation("useBloom"), m_useBloom);
+            glUniform1f(m_tonemapShader.getUniformLocation("bloomIntensity"), m_bloomIntensity);
             m_hdrFramebuffer.drawFullscreenTriangle();
 
             // robot arm joint axes, on top of the final image
@@ -584,9 +586,11 @@ private:
             ImGui::Checkbox("Debug: show edges only", &m_showEdgeView);
         }
         if (ImGui::CollapsingHeader("Bloom")) {
-            ImGui::SliderFloat("Threshold", &m_bloomThreshold, 0.5f, 3.0f);
+            ImGui::Checkbox("Show bloom", &m_useBloom);
+            ImGui::SliderFloat("Bloom intensity", &m_bloomIntensity, 0.0f, 2.0f);
+            ImGui::SliderFloat("Bloom threshold", &m_bloomThreshold, 0.5f, 3.0f);
             ImGui::SliderInt("Blur passes", &m_bloomBlurPasses, 1, 10);
-            ImGui::Checkbox("Debug: show bloom", &m_showBloomView);
+            ImGui::Checkbox("Debug: show bloom only", &m_showBloomView);
         }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
@@ -679,6 +683,8 @@ private:
     bool m_vsync { true };
     float m_exposure { 1.0f };
     bool m_useTonemapping { false };
+    bool m_useBloom { true };
+    float m_bloomIntensity { 0.6f };
     float m_bloomThreshold { 1.0f };
     bool m_showBloomView { false };
     int m_bloomBlurPasses { 5 };

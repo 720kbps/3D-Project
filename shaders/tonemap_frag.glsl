@@ -16,6 +16,8 @@ uniform float farPlane;
 uniform bool orthographic;
 uniform sampler2D bloomTexture;
 uniform bool showBloomView;
+uniform bool useBloom;
+uniform float bloomIntensity;
 
 in vec2 texCoord;
 
@@ -84,8 +86,14 @@ void main()
         return;
     }
 
+    vec3 color = texture(hdrColor, texCoord).rgb;
+
+    // bloom: add the blurred bright parts on top
+    if (useBloom)
+        color += texture(bloomTexture, texCoord).rgb * bloomIntensity;
+
     // exposure
-    vec3 color = texture(hdrColor, texCoord).rgb * exposure;
+    color *= exposure;
 
     // outlines
     if (useOutlines && isEdge)
