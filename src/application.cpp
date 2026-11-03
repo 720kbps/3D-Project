@@ -2,6 +2,7 @@
 #include "core/hdr_framebuffer.h"
 #include "core/mesh.h"
 #include "core/texture.h"
+#include "features/arc_length.h"
 #include "features/bezier_path.h"
 #include "features/chase_camera.h"
 #include "features/orbit_camera.h"
@@ -155,7 +156,13 @@ public:
             drawUI();
 
             // move the cart along the path
-            const glm::vec3 cartPosition = m_path.position(m_time * m_cartSpeed);
+            float pathParameter = m_time * m_cartSpeed;
+            if (m_constantSpeed) {
+                // same lap time, but the same distance every second
+                const float unitsPerSecond = m_cartSpeed * m_arcLength.totalLength() / static_cast<float>(m_path.segmentCount());
+                pathParameter = m_arcLength.parameterAtDistance(m_time * unitsPerSecond);
+            }
+            const glm::vec3 cartPosition = m_path.position(pathParameter);
             m_objects[m_cartIndex].modelMatrix = glm::scale(glm::translate(glm::mat4(1.0f), cartPosition), glm::vec3(0.15f));
             m_objects[m_cartIndex].visible = m_showPath;
 
@@ -413,6 +420,12 @@ public:
                 m_robotArm.drawJointAxes(m_defaultShader, projectionMatrix * viewMatrix, m_cubeMesh);
             }
 
+            // markers comparing equal t steps with equal distance steps, on top of the final image
+            if (m_showPath && m_showSpeedMarkers) {
+                m_defaultShader.bind();
+                m_arcLength.drawMarkers(m_path, m_markerCount, m_defaultShader, projectionMatrix * viewMatrix, m_sphereMesh);
+            }
+
             m_window.swapBuffers();
         }
     }
@@ -555,6 +568,12 @@ private:
             ImGui::Checkbox("Show path and cart", &m_showPath);
             ImGui::SliderFloat("Cart speed", &m_cartSpeed, 0.0f, 2.0f, "%.2f segments/s");
         }
+        if (ImGui::CollapsingHeader("Constant speed")) {
+            ImGui::Checkbox("Constant speed (arc length)", &m_constantSpeed);
+            ImGui::Text("Path length: %.2f", static_cast<double>(m_arcLength.totalLength()));
+            ImGui::Checkbox("Show markers (orange: equal t, cyan: equal distance)", &m_showSpeedMarkers);
+            ImGui::SliderInt("Markers", &m_markerCount, 6, 60);
+        }
         if (ImGui::CollapsingHeader("Robot arm")) {
             if (ImGui::Checkbox("Show robot arm", &m_showRobotArm)) {
                 for (size_t i = 0; i < RobotArm::PartCount; ++i)
@@ -692,6 +711,10 @@ private:
     std::vector<SceneObject> m_objects;
 
     BezierPath m_path;
+    ArcLengthTable m_arcLength { m_path };
+    bool m_constantSpeed { true };
+    bool m_showSpeedMarkers { false };
+    int m_markerCount { 30 };
     size_t m_cartIndex { 0 };
     float m_cartSpeed { 0.3f };
     bool m_showPath { true };

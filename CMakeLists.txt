@@ -17,6 +17,7 @@ add_executable(Master_TechDemo
     "src/core/texture.cpp"
 
     # features
+    "src/features/arc_length.cpp"
     "src/features/bezier_path.cpp"
     "src/features/chase_camera.cpp"
     "src/features/orbit_camera.cpp"
