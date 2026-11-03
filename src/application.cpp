@@ -420,6 +420,12 @@ public:
                 m_robotArm.drawJointAxes(m_defaultShader, projectionMatrix * viewMatrix, m_cubeMesh);
             }
 
+            // markers comparing equal t steps with equal distance steps, on top of the final image
+            if (m_showPath && m_showSpeedMarkers) {
+                m_defaultShader.bind();
+                m_arcLength.drawMarkers(m_path, m_markerCount, m_defaultShader, projectionMatrix * viewMatrix, m_sphereMesh);
+            }
+
             m_window.swapBuffers();
         }
     }
@@ -565,6 +571,8 @@ private:
         if (ImGui::CollapsingHeader("Constant speed")) {
             ImGui::Checkbox("Constant speed (arc length)", &m_constantSpeed);
             ImGui::Text("Path length: %.2f", static_cast<double>(m_arcLength.totalLength()));
+            ImGui::Checkbox("Show markers (orange: equal t, cyan: equal distance)", &m_showSpeedMarkers);
+            ImGui::SliderInt("Markers", &m_markerCount, 6, 60);
         }
         if (ImGui::CollapsingHeader("Robot arm")) {
             if (ImGui::Checkbox("Show robot arm", &m_showRobotArm)) {
@@ -705,6 +713,8 @@ private:
     BezierPath m_path;
     ArcLengthTable m_arcLength { m_path };
     bool m_constantSpeed { true };
+    bool m_showSpeedMarkers { false };
+    int m_markerCount { 30 };
     size_t m_cartIndex { 0 };
     float m_cartSpeed { 0.3f };
     bool m_showPath { true };

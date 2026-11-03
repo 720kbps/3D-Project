@@ -2,6 +2,8 @@
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
 #include <glm/geometric.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <glm/gtc/type_ptr.hpp>
 DISABLE_WARNINGS_POP()
 #include <algorithm>
 #include <cmath>
@@ -42,4 +44,33 @@ float ArcLengthTable::parameterAtDistance(float distance) const
     // interpolate between the two samples around it
     const float fraction = (distance - m_lengths[i - 1]) / (m_lengths[i] - m_lengths[i - 1]);
     return (static_cast<float>(i - 1) + fraction) * m_step;
+}
+
+void ArcLengthTable::drawMarkers(const BezierPath& path, int count, const Shader& shader, const glm::mat4& viewProjection, const std::vector<GPUMesh>& sphereMesh) const
+{
+    // flat colour, no texture
+    glUniform1i(shader.getUniformLocation("unlit"), true);
+    glUniform1i(shader.getUniformLocation("hasAlbedoMap"), false);
+
+    const glm::vec3 equalTColor { 1.0f, 0.35f, 0.1f };
+    const glm::vec3 equalDistanceColor { 0.1f, 0.8f, 1.0f };
+    for (int k = 0; k < count; ++k) {
+        const float fraction = static_cast<float>(k) / static_cast<float>(count);
+
+        // equal steps in t, and equal steps along the curve
+        const float equalT = fraction * static_cast<float>(path.segmentCount());
+        const float equalDistance = parameterAtDistance(fraction * totalLength());
+
+        for (int set = 0; set < 2; ++set) {
+            const glm::vec3 position = path.position(set == 0 ? equalT : equalDistance);
+            const float size = set == 0 ? 0.07f : 0.045f;
+            const glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), position), glm::vec3(size));
+            const glm::mat4 mvpMatrix = viewProjection * model;
+            glUniformMatrix4fv(shader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
+            glUniformMatrix4fv(shader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(model));
+            glUniform3fv(shader.getUniformLocation("baseColor"), 1, glm::value_ptr(set == 0 ? equalTColor : equalDistanceColor));
+            for (const GPUMesh& mesh : sphereMesh)
+                mesh.draw();
+        }
+    }
 }
