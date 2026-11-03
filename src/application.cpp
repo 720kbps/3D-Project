@@ -117,6 +117,11 @@ public:
             bloomBrightBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/bloom_bright_frag.glsl");
             m_bloomBrightShader = bloomBrightBuilder.build();
 
+            ShaderBuilder bloomBlurBuilder;
+            bloomBlurBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/tonemap_vert.glsl");
+            bloomBlurBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/bloom_blur_frag.glsl");
+            m_bloomBlurShader = bloomBlurBuilder.build();
+
             ShaderBuilder bezierBuilder;
             bezierBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/bezier_vert.glsl");
             bezierBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/bezier_frag.glsl");
@@ -346,6 +351,21 @@ public:
             glUniform1f(m_bloomBrightShader.getUniformLocation("threshold"), m_bloomThreshold);
             m_hdrFramebuffer.drawFullscreenTriangle();
 
+            // bloom: blur back and forth, horizontal (0 -> 1) then vertical (1 -> 0)
+            m_bloomBlurShader.bind();
+            glUniform1i(m_bloomBlurShader.getUniformLocation("image"), 0);
+            for (int i = 0; i < m_bloomBlurPasses; ++i) {
+                m_bloom.bindTarget(1);
+                m_bloom.bindTexture(0, GL_TEXTURE0);
+                glUniform1i(m_bloomBlurShader.getUniformLocation("horizontal"), true);
+                m_hdrFramebuffer.drawFullscreenTriangle();
+
+                m_bloom.bindTarget(0);
+                m_bloom.bindTexture(1, GL_TEXTURE0);
+                glUniform1i(m_bloomBlurShader.getUniformLocation("horizontal"), false);
+                m_hdrFramebuffer.drawFullscreenTriangle();
+            }
+
             // tonemap to the screen
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
             glViewport(0, 0, framebufferSize.x, framebufferSize.y);
@@ -565,7 +585,8 @@ private:
         }
         if (ImGui::CollapsingHeader("Bloom")) {
             ImGui::SliderFloat("Threshold", &m_bloomThreshold, 0.5f, 3.0f);
-            ImGui::Checkbox("Debug: show bright parts", &m_showBloomView);
+            ImGui::SliderInt("Blur passes", &m_bloomBlurPasses, 1, 10);
+            ImGui::Checkbox("Debug: show bloom", &m_showBloomView);
         }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
@@ -603,6 +624,7 @@ private:
     Shader m_shadowShader;
     Shader m_tonemapShader;
     Shader m_bloomBrightShader;
+    Shader m_bloomBlurShader;
     Shader m_bezierShader;
     Shader m_skyboxShader;
 
@@ -659,6 +681,7 @@ private:
     bool m_useTonemapping { false };
     float m_bloomThreshold { 1.0f };
     bool m_showBloomView { false };
+    int m_bloomBlurPasses { 5 };
     bool m_useOutlines { true };
     float m_depthThreshold { 0.3f };
     float m_normalThreshold { 1.0f };
