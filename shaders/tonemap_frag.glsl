@@ -14,6 +14,8 @@ uniform bool showEdgeView;
 uniform float nearPlane;
 uniform float farPlane;
 uniform bool orthographic;
+uniform sampler2D bloomTexture;
+uniform bool showBloomView;
 
 in vec2 texCoord;
 
@@ -67,6 +69,12 @@ float normalEdge()
 
 void main()
 {
+    // debug view: the bright parts that will glow
+    if (showBloomView) {
+        fragColor = vec4(texture(bloomTexture, texCoord).rgb, 1.0);
+        return;
+    }
+
     // edge detection
     bool isEdge = depthEdge() > depthThreshold || normalEdge() > normalThreshold;
 

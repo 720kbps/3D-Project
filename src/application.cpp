@@ -7,6 +7,7 @@
 #include "features/orbit_camera.h"
 #include "features/robot_arm.h"
 #include "features/shadow_map.h"
+#include "features/bloom.h"
 #include "features/top_camera.h"
 #include <framework/disable_all_warnings.h>
 DISABLE_WARNINGS_PUSH()
@@ -110,6 +111,11 @@ public:
             tonemapBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/tonemap_vert.glsl");
             tonemapBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/tonemap_frag.glsl");
             m_tonemapShader = tonemapBuilder.build();
+
+            ShaderBuilder bloomBrightBuilder;
+            bloomBrightBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/tonemap_vert.glsl");
+            bloomBrightBuilder.addStage(GL_FRAGMENT_SHADER, RESOURCE_ROOT "shaders/bloom_bright_frag.glsl");
+            m_bloomBrightShader = bloomBrightBuilder.build();
 
             ShaderBuilder bezierBuilder;
             bezierBuilder.addStage(GL_VERTEX_SHADER, RESOURCE_ROOT "shaders/bezier_vert.glsl");
@@ -330,9 +336,19 @@ public:
                 m_path.draw();
             }
 
+            // bloom: keep only the bright parts, at half resolution
+            glDisable(GL_DEPTH_TEST);
+            m_bloom.resize(framebufferSize);
+            m_bloom.bindTarget(0);
+            m_bloomBrightShader.bind();
+            m_hdrFramebuffer.bindColorTexture(GL_TEXTURE0);
+            glUniform1i(m_bloomBrightShader.getUniformLocation("hdrColor"), 0);
+            glUniform1f(m_bloomBrightShader.getUniformLocation("threshold"), m_bloomThreshold);
+            m_hdrFramebuffer.drawFullscreenTriangle();
+
             // tonemap to the screen
             glBindFramebuffer(GL_FRAMEBUFFER, 0);
-            glDisable(GL_DEPTH_TEST);
+            glViewport(0, 0, framebufferSize.x, framebufferSize.y);
             m_tonemapShader.bind();
             m_hdrFramebuffer.bindColorTexture(GL_TEXTURE0);
             glUniform1i(m_tonemapShader.getUniformLocation("hdrColor"), 0);
@@ -351,6 +367,9 @@ public:
             glUniform1f(m_tonemapShader.getUniformLocation("nearPlane"), 0.1f);
             glUniform1f(m_tonemapShader.getUniformLocation("farPlane"), m_cameraMode == 1 ? m_topCamera.height + 5.0f : 50.0f);
             glUniform1i(m_tonemapShader.getUniformLocation("orthographic"), m_cameraMode == 1);
+            m_bloom.bindTexture(0, GL_TEXTURE3);
+            glUniform1i(m_tonemapShader.getUniformLocation("bloomTexture"), 3);
+            glUniform1i(m_tonemapShader.getUniformLocation("showBloomView"), m_showBloomView);
             m_hdrFramebuffer.drawFullscreenTriangle();
 
             // robot arm joint axes, on top of the final image
@@ -544,6 +563,10 @@ private:
             ImGui::ColorEdit3("Ink color", glm::value_ptr(m_inkColor));
             ImGui::Checkbox("Debug: show edges only", &m_showEdgeView);
         }
+        if (ImGui::CollapsingHeader("Bloom")) {
+            ImGui::SliderFloat("Threshold", &m_bloomThreshold, 0.5f, 3.0f);
+            ImGui::Checkbox("Debug: show bright parts", &m_showBloomView);
+        }
         if (ImGui::CollapsingHeader("HDR")) {
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
@@ -579,10 +602,12 @@ private:
     Shader m_defaultShader;
     Shader m_shadowShader;
     Shader m_tonemapShader;
+    Shader m_bloomBrightShader;
     Shader m_bezierShader;
     Shader m_skyboxShader;
 
     HdrFramebuffer m_hdrFramebuffer;
+    Bloom m_bloom;
     ShadowMap m_shadowMap;
     bool m_showLightDepth { false };
     bool m_useShadows { true };
@@ -632,6 +657,8 @@ private:
     bool m_vsync { true };
     float m_exposure { 1.0f };
     bool m_useTonemapping { false };
+    float m_bloomThreshold { 1.0f };
+    bool m_showBloomView { false };
     bool m_useOutlines { true };
     float m_depthThreshold { 0.3f };
     float m_normalThreshold { 1.0f };
