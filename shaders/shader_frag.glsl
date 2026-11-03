@@ -15,6 +15,7 @@ uniform bool hasNormalMap;
 uniform sampler2D normalMap;
 uniform float normalStrength;
 uniform bool unlit;
+uniform vec3 emissive;
 uniform int shadingModel;
 uniform int celBands;
 uniform vec3 shadowTint;
@@ -228,6 +229,9 @@ void main()
         vec3 environment = textureLod(environmentMap, R, roughness * maxMip).rgb;
         color += environment * F * ao;
     }
+
+    // emissive: light the surface gives off itself
+    color += emissive;
 
     fragColor = vec4(color, 1.0);
 }

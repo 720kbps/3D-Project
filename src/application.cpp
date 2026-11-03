@@ -50,6 +50,7 @@ struct SceneObject {
     float roughness { 0.5f };
     float metallic { 0.0f };
     bool rim { true };
+    glm::vec3 emissive { 0.0f };
 };
 
 static glm::vec3 srgb(float r, float g, float b)
@@ -264,6 +265,7 @@ public:
                 glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(object.baseColor));
                 glUniform1f(m_defaultShader.getUniformLocation("baseRoughness"), object.roughness);
                 glUniform1f(m_defaultShader.getUniformLocation("baseMetallic"), object.metallic);
+                glUniform3fv(m_defaultShader.getUniformLocation("emissive"), 1, glm::value_ptr(object.emissive));
                 glUniform1i(m_defaultShader.getUniformLocation("hasRim"), object.rim && m_useRim);
                 const bool useTexture = object.albedoMap && m_useAlbedoMaps;
                 glUniform1i(m_defaultShader.getUniformLocation("hasAlbedoMap"), useTexture);
@@ -313,7 +315,8 @@ public:
                 const glm::mat4 mvpMatrix = projectionMatrix * viewMatrix * model;
                 glUniformMatrix4fv(m_defaultShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
                 glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(model));
-                glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(light.color));
+                const glm::vec3 markerColor = light.color * light.intensity;
+                glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(markerColor));
                 for (const GPUMesh& mesh : m_sphereMesh)
                     mesh.draw();
             }
@@ -471,6 +474,7 @@ private:
         // cart riding the path
         m_objects.push_back({ "Cart", &m_sphereMesh, glm::mat4(1.0f), srgb(0.95f, 0.95f, 0.95f) });
         m_cartIndex = m_objects.size() - 1;
+        m_objects.back().emissive = glm::vec3(3.0f, 2.2f, 1.2f);
 
         // cylinder
         const glm::mat4 cylinderModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-1.3f, 0.4f, 0.8f)), glm::vec3(0.5f, 0.8f, 0.5f));
@@ -603,6 +607,7 @@ private:
                     ImGui::SliderFloat("Roughness", &m_objects[i].roughness, 0.05f, 1.0f);
                     ImGui::SliderFloat("Metallic", &m_objects[i].metallic, 0.0f, 1.0f);
                     ImGui::Checkbox("Rim light", &m_objects[i].rim);
+                    ImGui::ColorEdit3("Emissive", glm::value_ptr(m_objects[i].emissive), ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
                     ImGui::TreePop();
                 }
                 ImGui::PopID();
