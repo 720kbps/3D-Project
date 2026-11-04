@@ -21,5 +21,6 @@ void main()
     fragPosition = (modelMatrix * vec4(position, 1)).xyz;
     fragNormal   = normalModelMatrix * normal;
     fragTexCoord = texCoord;
+    // tangent turns with the model, w keeps the handedness for the bitangent
     fragTangent  = vec4(mat3(modelMatrix) * tangent.xyz, tangent.w);
 }

@@ -27,8 +27,6 @@ public:
     GPUMesh& operator=(const GPUMesh&) = delete;
     GPUMesh& operator=(GPUMesh&&);
 
-    bool hasTextureCoords() const;
-
     void draw() const;
 
 private:
@@ -39,7 +37,6 @@ private:
     static constexpr GLuint INVALID = 0xFFFFFFFF;
 
     GLsizei m_numIndices { 0 };
-    bool m_hasTextureCoords { false };
     GLuint m_ibo { INVALID };
     GLuint m_vbo { INVALID };
     GLuint m_vao { INVALID };

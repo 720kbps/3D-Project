@@ -6,6 +6,7 @@ uniform sampler2D albedoMap;
 uniform float baseRoughness;
 uniform bool hasRoughnessMap;
 uniform sampler2D roughnessMap;
+uniform bool smoothnessInAlpha;
 uniform float baseMetallic;
 uniform bool hasMetallicMap;
 uniform sampler2D metallicMap;
@@ -16,6 +17,8 @@ uniform sampler2D normalMap;
 uniform float normalStrength;
 uniform bool unlit;
 uniform vec3 emissive;
+uniform bool hasEmissiveMap;
+uniform sampler2D emissiveMap;
 uniform int shadingModel;
 uniform int celBands;
 uniform vec3 shadowTint;
@@ -104,24 +107,25 @@ vec3 shadeLight(vec3 N, vec3 V, vec3 L, vec3 radiance, vec3 albedo, float roughn
     vec3 F = fresnelSchlick(HdotV, F0);
     vec3 specular = D * G * F / (4.0 * NdotV * NdotL + 0.0001);
 
-    // diffuse (Lambert)
+    // diffuse (Lambert): light that is not reflected enters the surface, metals have none
     vec3 kD = (1.0 - F) * (1.0 - metallic);
     vec3 diffuse = kD * albedo / PI;
 
     // cel: snap the diffuse light to flat bands
     float diffuseLight = NdotL;
     if (shadingModel == 2) {
+        // x counts bands: floor(x) is the band we are in, fract(x) how far into it
         float x = NdotL * float(celBands);
 
-        // smooth each band edge over about one pixel
-        float edgeWidth = fwidth(x);
+        // smooth each band edge over about one pixel, and a bit more so flat faces fade instead of jumping
+        float edgeWidth = max(fwidth(x), 0.15);
         float banded = floor(x) + smoothstep(1.0 - edgeWidth, 1.0, fract(x));
 
         diffuseLight = min(banded / float(celBands - 1), 1.0);
 
         // hard highlight: on where GGX is above a threshold
         float highlight = D * NdotL;
-        float highlightWidth = fwidth(highlight);
+        float highlightWidth = max(fwidth(highlight), 0.0001);
         float mask = smoothstep(specularThreshold - highlightWidth, specularThreshold + highlightWidth, highlight);
         vec3 highlightColor = mix(vec3(1.0), albedo, metallic) * specularStrength;
 
@@ -169,9 +173,12 @@ void main()
 
     // material
     vec3 albedo = hasAlbedoMap ? texture(albedoMap, fragTexCoord).rgb : baseColor;
-    float roughness = hasRoughnessMap ? texture(roughnessMap, fragTexCoord).r : baseRoughness;
-    roughness = max(roughness, 0.05);
     float metallic = hasMetallicMap ? texture(metallicMap, fragTexCoord).r : baseMetallic;
+    float roughness = hasRoughnessMap ? texture(roughnessMap, fragTexCoord).r : baseRoughness;
+    // Unity-style maps: metallic in red, smoothness (1 - roughness) in alpha
+    if (hasRoughnessMap && smoothnessInAlpha)
+        roughness = 1.0 - texture(roughnessMap, fragTexCoord).a;
+    roughness = max(roughness, 0.05);
     float ao = hasAoMap ? texture(aoMap, fragTexCoord).r : 1.0;
     if (unlit) {
         fragColor = vec4(albedo, 1.0);
@@ -202,9 +209,11 @@ void main()
 
     // normal map: tangent space -> world space
     if (hasNormalMap) {
+        // tangent made exactly perpendicular to the normal, bitangent from the cross product (w = mirrored UVs)
         vec3 T = normalize(fragTangent.xyz - dot(fragTangent.xyz, N) * N);
         vec3 B = cross(N, T) * fragTangent.w;
         mat3 TBN = mat3(T, B, N);
+        // colour 0..1 -> direction -1..1
         vec3 mapNormal = texture(normalMap, fragTexCoord).rgb * 2.0 - 1.0;
         mapNormal.xy *= normalStrength;
         N = normalize(TBN * mapNormal);
@@ -231,8 +240,9 @@ void main()
 
     // cel: rim light on the lit side of the silhouette
     if (shadingModel == 2 && hasRim) {
+        // close to 1 where the surface turns away from the camera, and only where the sun reaches
         float rim = (1.0 - max(dot(N, V), 0.0)) * pow(max(dot(N, normalize(lightDirection)), 0.0), 0.1);
-        float rimWidth = fwidth(rim);
+        float rimWidth = max(fwidth(rim), 0.0001);
         float rimMask = smoothstep(1.0 - rimSize - rimWidth, 1.0 - rimSize + rimWidth, rim);
         color += rimColor * rimMask;
     }
@@ -250,7 +260,7 @@ void main()
     }
 
     // emissive: light the surface gives off itself
-    color += emissive;
+    color += hasEmissiveMap ? texture(emissiveMap, fragTexCoord).rgb * emissive : emissive;
 
     fragColor = vec4(color, 1.0);
 }

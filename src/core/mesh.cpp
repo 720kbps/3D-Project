@@ -40,6 +40,7 @@ std::vector<glm::vec4> computeTangents(const Mesh& mesh)
         const glm::vec3 e2 = v2.position - v0.position;
         const glm::vec2 d1 = v1.texCoord - v0.texCoord;
         const glm::vec2 d2 = v2.texCoord - v0.texCoord;
+        // solve e1 = d1.x * T + d1.y * B and e2 = d2.x * T + d2.y * B for T and B
         const float det = d1.x * d2.y - d2.x * d1.y;
         if (std::abs(det) < 1e-12f)
             continue;
@@ -73,8 +74,6 @@ std::vector<glm::vec4> computeTangents(const Mesh& mesh)
 
 GPUMesh::GPUMesh(const Mesh& cpuMesh)
 {
-    m_hasTextureCoords = static_cast<bool>(cpuMesh.material.kdTexture);
-
     // create VAO
     glGenVertexArrays(1, &m_vao);
     glBindVertexArray(m_vao);
@@ -139,11 +138,6 @@ std::vector<GPUMesh> GPUMesh::loadMeshGPU(std::filesystem::path filePath, bool n
     return gpuMeshes;
 }
 
-bool GPUMesh::hasTextureCoords() const
-{
-    return m_hasTextureCoords;
-}
-
 void GPUMesh::draw() const
 {
     glBindVertexArray(m_vao);
@@ -154,7 +148,6 @@ void GPUMesh::moveInto(GPUMesh&& other)
 {
     freeGpuMemory();
     m_numIndices = other.m_numIndices;
-    m_hasTextureCoords = other.m_hasTextureCoords;
     m_ibo = other.m_ibo;
     m_vbo = other.m_vbo;
     m_vao = other.m_vao;

@@ -9,6 +9,6 @@ public:
     glm::mat4 viewMatrix() const;
     glm::mat4 projectionMatrix(float aspectRatio) const;
 
-    float height { 10.0f };
+    float height { 4.0f };
     float viewSize { 3.5f };
 };

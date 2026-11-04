@@ -26,7 +26,6 @@ DISABLE_WARNINGS_POP()
 #include <framework/shader.h>
 #include <framework/window.h>
 #include <array>
-#include <functional>
 #include <iostream>
 #include <string>
 #include <vector>
@@ -48,10 +47,12 @@ struct SceneObject {
     const Texture* metallicMap { nullptr };
     const Texture* aoMap { nullptr };
     const Texture* normalMap { nullptr };
+    const Texture* emissiveMap { nullptr };
     bool visible { true };
     float roughness { 0.5f };
     float metallic { 0.0f };
     bool rim { true };
+    bool smoothnessInAlpha { false };
     glm::vec3 emissive { 0.0f };
 };
 
@@ -74,20 +75,18 @@ public:
                               RESOURCE_ROOT "resources/skybox/py.png", RESOURCE_ROOT "resources/skybox/ny.png",
                               RESOURCE_ROOT "resources/skybox/pz.png", RESOURCE_ROOT "resources/skybox/nz.png" },
               ColorSpace::Srgb)
+        , m_crystalAlbedo(RESOURCE_ROOT "resources/models/magiccrystal/model.png", ColorSpace::Srgb)
+        , m_crystalMetallic(RESOURCE_ROOT "resources/models/magiccrystal/metalnessMap1.png", ColorSpace::Linear)
+        , m_crystalNormal(RESOURCE_ROOT "resources/models/magiccrystal/normalMap1.png", ColorSpace::Linear)
+        , m_gazeboAlbedo(RESOURCE_ROOT "resources/models/gazebo/textures/Gazebo_Albedo_2k.png", ColorSpace::Srgb)
+        , m_gazeboMetallicSmoothness(RESOURCE_ROOT "resources/models/gazebo/textures/Gazebo_MetallicSmoothness_2k.png", ColorSpace::Linear)
+        , m_gazeboAo(RESOURCE_ROOT "resources/models/gazebo/textures/Gazebo_AO.png", ColorSpace::Linear)
+        , m_gazeboNormal(RESOURCE_ROOT "resources/models/gazebo/textures/Gazebo_Normal_2k.png", ColorSpace::Linear)
     {
         // input callbacks
-        m_window.registerKeyCallback([this](int key, int /* scancode */, int action, int mods) {
+        m_window.registerKeyCallback([this](int key, int /* scancode */, int action, int /* mods */) {
             if (action == GLFW_PRESS)
-                onKeyPressed(key, mods);
-            else if (action == GLFW_RELEASE)
-                onKeyReleased(key, mods);
-        });
-        m_window.registerMouseMoveCallback(std::bind(&Application::onMouseMove, this, std::placeholders::_1));
-        m_window.registerMouseButtonCallback([this](int button, int action, int mods) {
-            if (action == GLFW_PRESS)
-                onMouseClicked(button, mods);
-            else if (action == GLFW_RELEASE)
-                onMouseReleased(button, mods);
+                onKeyPressed(key);
         });
         m_window.registerScrollCallback([this](const glm::vec2& offset) {
             if (m_cameraMode == 2 && !ImGui::GetIO().WantCaptureMouse)
@@ -166,10 +165,29 @@ public:
             m_objects[m_cartIndex].modelMatrix = glm::scale(glm::translate(glm::mat4(1.0f), cartPosition), glm::vec3(0.15f));
             m_objects[m_cartIndex].visible = m_showPath;
 
+            // spin the podium and its items together around the y axis
+            // (spin is multiplied on the left, so it turns the already placed object around the world y axis)
+            if (m_spinPodium && !m_paused)
+                m_podiumAngle += m_podiumSpinSpeed * m_deltaTime;
+            const glm::mat4 spin = glm::rotate(glm::mat4(1.0f), m_podiumAngle, glm::vec3(0.0f, 1.0f, 0.0f));
+            m_objects[m_plinthIndex].modelMatrix = spin * m_plinthModel;
+            m_objects[m_plinthIndex + 1].modelMatrix = spin * m_dragonModel;
+            m_objects[m_plinthIndex + 2].modelMatrix = spin * m_crystalModel;
+            m_objects[m_plinthIndex + 3].modelMatrix = spin * m_sphereModel;
+            m_objects[m_plinthIndex + 4].modelMatrix = spin * m_cubeModel;
+
+            // show only the selected item on the podium
+            m_objects[m_plinthIndex + 1].visible = m_showcaseItem == 0;
+            m_objects[m_plinthIndex + 2].visible = m_showcaseItem == 2;
+            m_objects[m_plinthIndex + 3].visible = m_showcaseItem == 3;
+            m_objects[m_plinthIndex + 4].visible = m_showcaseItem == 4;
+            for (size_t i = 0; i < RobotArm::PartCount; ++i)
+                m_objects[m_robotFirstIndex + i].visible = m_showcaseItem == 1;
+
             // pose the robot arm parts
             m_robotArm.update(m_time);
             for (size_t i = 0; i < RobotArm::PartCount; ++i)
-                m_objects[m_robotFirstIndex + i].modelMatrix = m_robotArm.partMatrices()[i];
+                m_objects[m_robotFirstIndex + i].modelMatrix = spin * m_robotArm.partMatrices()[i];
 
             // camera (ignore mouse while over the UI)
             m_camera.setUserInteraction(m_cameraMode == 0 && !ImGui::GetIO().WantCaptureMouse);
@@ -196,10 +214,15 @@ public:
 
             // shadow maps: depth of the scene seen from each point light
             std::array<glm::mat4, 2> pointLightMatrices;
+            SceneObject& crystal = m_objects[m_plinthIndex + 2];
+            const bool crystalVisible = crystal.visible;
             for (size_t i = 0; i < m_pointShadowMaps.size(); ++i) {
+                // the crystal holds light 1, so it must not block it
+                crystal.visible = crystalVisible && !(i == 0 && m_showcaseItem == 2);
                 pointLightMatrices[i] = ShadowMap::pointLightMatrix(m_pointLights[i].position);
                 renderShadowMap(m_pointShadowMaps[i], pointLightMatrices[i]);
             }
+            crystal.visible = crystalVisible;
 
             // render into the HDR framebuffer
             m_hdrFramebuffer.resize(framebufferSize);
@@ -273,6 +296,7 @@ public:
 
                 // matrices
                 const glm::mat4 mvpMatrix = projectionMatrix * viewMatrix * object.modelMatrix;
+                // inverse transpose keeps normals perpendicular to the surface when the model is scaled unevenly
                 const glm::mat3 normalModelMatrix = glm::inverseTranspose(glm::mat3(object.modelMatrix));
                 glUniformMatrix4fv(m_defaultShader.getUniformLocation("mvpMatrix"), 1, GL_FALSE, glm::value_ptr(mvpMatrix));
                 glUniformMatrix4fv(m_defaultShader.getUniformLocation("modelMatrix"), 1, GL_FALSE, glm::value_ptr(object.modelMatrix));
@@ -282,6 +306,7 @@ public:
                 glUniform3fv(m_defaultShader.getUniformLocation("baseColor"), 1, glm::value_ptr(object.baseColor));
                 glUniform1f(m_defaultShader.getUniformLocation("baseRoughness"), object.roughness);
                 glUniform1f(m_defaultShader.getUniformLocation("baseMetallic"), object.metallic);
+                glUniform1i(m_defaultShader.getUniformLocation("smoothnessInAlpha"), object.smoothnessInAlpha);
                 glUniform3fv(m_defaultShader.getUniformLocation("emissive"), 1, glm::value_ptr(object.emissive));
                 glUniform1i(m_defaultShader.getUniformLocation("hasRim"), object.rim && m_useRim);
                 const bool useTexture = object.albedoMap && m_useAlbedoMaps;
@@ -314,6 +339,12 @@ public:
                     object.normalMap->bind(GL_TEXTURE4);
                     glUniform1i(m_defaultShader.getUniformLocation("normalMap"), 4);
                     glUniform1f(m_defaultShader.getUniformLocation("normalStrength"), m_normalStrength);
+                }
+                const bool useEmissiveMap = object.emissiveMap && m_useEmissiveMaps;
+                glUniform1i(m_defaultShader.getUniformLocation("hasEmissiveMap"), useEmissiveMap);
+                if (useEmissiveMap) {
+                    object.emissiveMap->bind(GL_TEXTURE9);
+                    glUniform1i(m_defaultShader.getUniformLocation("emissiveMap"), 9);
                 }
 
                 for (const GPUMesh& mesh : *object.meshes)
@@ -415,9 +446,9 @@ public:
             m_hdrFramebuffer.drawFullscreenTriangle();
 
             // robot arm joint axes, on top of the final image
-            if (m_showRobotArm && m_showJointAxes) {
+            if (m_showJointAxes && m_showcaseItem == 1) {
                 m_defaultShader.bind();
-                m_robotArm.drawJointAxes(m_defaultShader, projectionMatrix * viewMatrix, m_cubeMesh);
+                m_robotArm.drawJointAxes(m_defaultShader, projectionMatrix * viewMatrix * spin, m_cubeMesh);
             }
 
             // markers comparing equal t steps with equal distance steps, on top of the final image
@@ -430,7 +461,7 @@ public:
         }
     }
 
-    void onKeyPressed(int key, int /* mods */)
+    void onKeyPressed(int key)
     {
         // switch camera
         switch (key) {
@@ -448,11 +479,6 @@ public:
             break;
         }
     }
-
-    void onKeyReleased(int /* key */, int /* mods */) { }
-    void onMouseMove(const glm::dvec2& /* cursorPos */) { }
-    void onMouseClicked(int /* button */, int /* mods */) { }
-    void onMouseReleased(int /* button */, int /* mods */) { }
 
 private:
     void renderShadowMap(const ShadowMap& shadowMap, const glm::mat4& lightMatrix)
@@ -473,37 +499,55 @@ private:
     void buildScene()
     {
         // load meshes
-        m_planeMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/plane.obj");
         m_cubeMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/cube.obj");
         m_sphereMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/sphere.obj");
         m_cylinderMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/cylinder.obj");
         m_dragonMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/dragon.obj");
+        m_gazeboMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/models/gazebo/source/Gazebo.obj");
+        m_crystalMesh = GPUMesh::loadMeshGPU(RESOURCE_ROOT "resources/models/magiccrystal/herunterladen--342--preview-1760647151694_png.obj");
 
-        // orbit around the dragon's middle
-        m_orbitCamera.target = glm::vec3(0.0f, 0.35f, 0.0f);
+        // orbit and chase cameras look at the middle of the item on the podium
+        m_orbitCamera.target = glm::vec3(0.0f, 0.65f, 0.0f);
+        m_chaseCamera.target = m_orbitCamera.target;
 
-        // ground and dragon
-        m_objects.push_back({ "Ground", &m_planeMesh, glm::scale(glm::mat4(1.0f), glm::vec3(6.0f, 1.0f, 6.0f)), srgb(0.45f, 0.47f, 0.5f) });
-        m_objects.back().roughness = 0.8f;
+        // gazebo around the podium, lowered so its floor is at y = 0
+        const glm::mat4 gazeboModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, -0.1f, 0.0f));
+        m_gazeboIndex = m_objects.size();
+        m_objects.push_back({ "Gazebo", &m_gazeboMesh, gazeboModel, glm::vec3(1.0f), &m_gazeboAlbedo });
+        m_objects.back().metallicMap = &m_gazeboMetallicSmoothness;
+        m_objects.back().roughnessMap = &m_gazeboMetallicSmoothness;
+        m_objects.back().smoothnessInAlpha = true;
+        m_objects.back().aoMap = &m_gazeboAo;
+        m_objects.back().normalMap = &m_gazeboNormal;
         m_objects.back().rim = false;
-        m_objects.push_back({ "Dragon", &m_dragonMesh, glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.283f, 0.0f)), srgb(1.0f, 0.78f, 0.34f) });
+
+        // podium (plinth) and the showcase items standing on it
+        const float plinthHeight = 0.3f;
+        m_robotArm.position = glm::vec3(0.0f, plinthHeight, 0.0f);
+        m_plinthModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.5f * plinthHeight, 0.0f)), glm::vec3(1.2f, plinthHeight, 1.2f));
+        m_dragonModel = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, plinthHeight + 0.283f, 0.0f));
+        m_plinthIndex = m_objects.size();
+        m_objects.push_back({ "Plinth", &m_cylinderMesh, m_plinthModel, srgb(0.55f, 0.52f, 0.48f) });
+        m_objects.back().roughness = 0.9f;
+        m_objects.push_back({ "Dragon", &m_dragonMesh, m_dragonModel, srgb(1.0f, 0.78f, 0.34f) });
         m_objects.back().roughness = 0.3f;
         m_objects.back().metallic = 1.0f;
-
-        // spheres
-        const glm::vec3 sphereColors[] = { srgb(0.8f, 0.2f, 0.2f), srgb(0.2f, 0.7f, 0.3f), srgb(0.2f, 0.4f, 0.85f), srgb(0.9f, 0.8f, 0.2f) };
-        for (int i = 0; i < 4; ++i) {
-            const glm::vec3 position(1.3f, 0.3f, -1.2f + 0.8f * static_cast<float>(i));
-            const glm::mat4 model = glm::scale(glm::translate(glm::mat4(1.0f), position), glm::vec3(0.6f));
-            m_objects.push_back({ "Sphere " + std::to_string(i + 1), &m_sphereMesh, model, sphereColors[i] });
-            m_objects.back().roughness = 0.15f + 0.25f * static_cast<float>(i);
-        }
-
-        // cube
-        glm::mat4 cubeModel = glm::translate(glm::mat4(1.0f), glm::vec3(-1.3f, 0.35f, -0.6f));
-        cubeModel = glm::rotate(cubeModel, glm::radians(30.0f), glm::vec3(0, 1, 0));
-        cubeModel = glm::scale(cubeModel, glm::vec3(0.7f));
-        m_objects.push_back({ "Cube", &m_cubeMesh, cubeModel, glm::vec3(1.0f), &m_metalAlbedo });
+        // crystal: scaled down, bottom lifted onto the podium, centred on the spin axis
+        const float crystalScale = 0.6f;
+        m_crystalModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, plinthHeight + 0.73f * crystalScale, 0.18f * crystalScale)), glm::vec3(crystalScale));
+        m_objects.push_back({ "Crystal", &m_crystalMesh, m_crystalModel, glm::vec3(1.0f), &m_crystalAlbedo });
+        m_objects.back().metallicMap = &m_crystalMetallic;
+        m_objects.back().normalMap = &m_crystalNormal;
+        m_objects.back().emissiveMap = &m_crystalAlbedo;
+        m_objects.back().emissive = glm::vec3(4.0f);
+        m_objects.back().roughness = 0.2f;
+        m_crystalCenter = glm::vec3(0.0f, plinthHeight + 0.73f * crystalScale, 0.0f);
+        m_sphereModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, plinthHeight + 0.4f, 0.0f)), glm::vec3(0.8f));
+        m_objects.push_back({ "Mirror sphere", &m_sphereMesh, m_sphereModel, srgb(0.95f, 0.95f, 0.95f) });
+        m_objects.back().metallic = 1.0f;
+        m_objects.back().roughness = 0.05f;
+        m_cubeModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, plinthHeight + 0.35f, 0.0f)), glm::vec3(0.7f));
+        m_objects.push_back({ "Metal cube", &m_cubeMesh, m_cubeModel, glm::vec3(1.0f), &m_metalAlbedo });
         m_objects.back().roughnessMap = &m_metalRoughness;
         m_objects.back().metallicMap = &m_metalMetallic;
         m_objects.back().aoMap = &m_metalAo;
@@ -513,10 +557,6 @@ private:
         m_objects.push_back({ "Cart", &m_sphereMesh, glm::mat4(1.0f), srgb(0.95f, 0.95f, 0.95f) });
         m_cartIndex = m_objects.size() - 1;
         m_objects.back().emissive = glm::vec3(3.0f, 2.2f, 1.2f);
-
-        // cylinder
-        const glm::mat4 cylinderModel = glm::scale(glm::translate(glm::mat4(1.0f), glm::vec3(-1.3f, 0.4f, 0.8f)), glm::vec3(0.5f, 0.8f, 0.5f));
-        m_objects.push_back({ "Cylinder", &m_cylinderMesh, cylinderModel, srgb(0.6f, 0.35f, 0.75f) });
 
         // robot arm, one object per part in RobotArm::Part order
         const glm::vec3 robotOrange = srgb(0.95f, 0.45f, 0.1f);
@@ -534,35 +574,77 @@ private:
         m_objects.push_back({ "Robot right finger", &m_cubeMesh, glm::mat4(1.0f), robotGrey });
     }
 
+    void selectShowcaseItem(int item)
+    {
+        m_showcaseItem = item;
+
+        // light 1 sits inside the crystal while it is shown
+        m_pointLights[0].enabled = item == 2;
+        if (item == 2) {
+            m_pointLights[0].position = m_crystalCenter;
+            m_pointLights[0].color = glm::vec3(0.2f, 0.65f, 1.0f);
+            m_pointLights[0].intensity = 4.0f;
+        }
+    }
+
     void drawUI()
     {
         ImGui::Begin("Settings");
         ImGui::Text("%.1f FPS (%.2f ms)", static_cast<double>(ImGui::GetIO().Framerate), static_cast<double>(1000.0f / ImGui::GetIO().Framerate));
-        ImGui::TextUnformatted("Camera: WASD move, R/F up/down, hold left mouse to look.");
-        ImGui::Checkbox("Albedo maps", &m_useAlbedoMaps);
-        ImGui::Checkbox("Roughness maps", &m_useRoughnessMaps);
-        ImGui::Checkbox("Metallic maps", &m_useMetallicMaps);
-        ImGui::Checkbox("AO maps", &m_useAoMaps);
-        ImGui::Checkbox("Normal maps", &m_useNormalMaps);
-        ImGui::SliderFloat("Normal strength", &m_normalStrength, 0.0f, 3.0f);
-        const char* shadingModels[] = { "Blinn-Phong", "PBR", "Cel" };
-        ImGui::Combo("Shading", &m_shadingModel, shadingModels, 3);
-        if (m_shadingModel == 2) {
-            ImGui::SliderInt("Bands", &m_celBands, 2, 5);
-            ImGui::ColorEdit3("Shadow tint", glm::value_ptr(m_shadowTint));
-            ImGui::SliderFloat("Highlight threshold", &m_specularThreshold, 0.7f, 1.5f);
-            ImGui::SliderFloat("Highlight strength", &m_specularStrength, 0.0f, 0.5f);
-            ImGui::Checkbox("Rim light", &m_useRim);
-            ImGui::ColorEdit3("Rim color", glm::value_ptr(m_rimColor));
-            ImGui::SliderFloat("Rim size", &m_rimSize, 0.0f, 0.5f);
+        if (ImGui::CollapsingHeader("Showcase", ImGuiTreeNodeFlags_DefaultOpen)) {
+            const char* items[] = { "Dragon", "Robot arm", "Crystal", "Mirror sphere", "Metal cube" };
+            int item = m_showcaseItem;
+            if (ImGui::Combo("Item", &item, items, 5))
+                selectShowcaseItem(item);
+            ImGui::Checkbox("Spin podium", &m_spinPodium);
+            ImGui::SliderFloat("Spin speed", &m_podiumSpinSpeed, 0.0f, 2.0f);
+            ImGui::Checkbox("Show gazebo", &m_objects[m_gazeboIndex].visible);
         }
-        if (ImGui::CollapsingHeader("Camera")) {
+        if (ImGui::CollapsingHeader("Camera", ImGuiTreeNodeFlags_DefaultOpen)) {
             const char* cameraModes[] = { "1: Free", "2: Top", "3: Orbit", "4: Chase" };
             ImGui::Combo("Mode", &m_cameraMode, cameraModes, 4);
+            if (m_cameraMode == 0)
+                ImGui::TextUnformatted("WASD move, R/F up/down, hold left mouse to look.");
             if (m_cameraMode == 1)
                 ImGui::SliderFloat("Top view size", &m_topCamera.viewSize, 1.0f, 10.0f);
             if (m_cameraMode == 2)
                 ImGui::TextUnformatted("Drag to rotate, scroll to zoom.");
+        }
+        if (ImGui::CollapsingHeader("Shading", ImGuiTreeNodeFlags_DefaultOpen)) {
+            const char* shadingModels[] = { "Blinn-Phong", "PBR", "Cel" };
+            ImGui::Combo("Model", &m_shadingModel, shadingModels, 3);
+            if (m_shadingModel == 2) {
+                ImGui::SliderInt("Bands", &m_celBands, 2, 5);
+                ImGui::ColorEdit3("Shadow tint", glm::value_ptr(m_shadowTint));
+                ImGui::SliderFloat("Highlight threshold", &m_specularThreshold, 0.7f, 1.5f);
+                ImGui::SliderFloat("Highlight strength", &m_specularStrength, 0.0f, 0.5f);
+                ImGui::Checkbox("Rim light", &m_useRim);
+                ImGui::ColorEdit3("Rim color", glm::value_ptr(m_rimColor));
+                ImGui::SliderFloat("Rim size", &m_rimSize, 0.0f, 0.5f);
+            }
+        }
+        if (ImGui::CollapsingHeader("Materials")) {
+            ImGui::Checkbox("Albedo maps", &m_useAlbedoMaps);
+            ImGui::Checkbox("Roughness maps", &m_useRoughnessMaps);
+            ImGui::Checkbox("Metallic maps", &m_useMetallicMaps);
+            ImGui::Checkbox("AO maps", &m_useAoMaps);
+            ImGui::Checkbox("Normal maps", &m_useNormalMaps);
+            ImGui::Checkbox("Emissive maps", &m_useEmissiveMaps);
+            ImGui::SliderFloat("Normal strength", &m_normalStrength, 0.0f, 3.0f);
+
+            // material of the item on the podium
+            ImGui::Separator();
+            if (m_showcaseItem == 1) {
+                ImGui::TextUnformatted("The robot arm uses plain colours.");
+            } else {
+                const size_t itemObjects[] = { m_plinthIndex + 1, 0, m_plinthIndex + 2, m_plinthIndex + 3, m_plinthIndex + 4 };
+                SceneObject& item = m_objects[itemObjects[m_showcaseItem]];
+                ImGui::Text("%s", item.name.c_str());
+                ImGui::SliderFloat("Roughness", &item.roughness, 0.05f, 1.0f);
+                ImGui::SliderFloat("Metallic", &item.metallic, 0.0f, 1.0f);
+                ImGui::Checkbox("Rim light##item", &item.rim);
+                ImGui::ColorEdit3("Emissive", glm::value_ptr(item.emissive), ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
+            }
         }
         if (ImGui::CollapsingHeader("Bezier path")) {
             ImGui::Checkbox("Show path and cart", &m_showPath);
@@ -575,10 +657,10 @@ private:
             ImGui::SliderInt("Markers", &m_markerCount, 6, 60);
         }
         if (ImGui::CollapsingHeader("Robot arm")) {
-            if (ImGui::Checkbox("Show robot arm", &m_showRobotArm)) {
-                for (size_t i = 0; i < RobotArm::PartCount; ++i)
-                    m_objects[m_robotFirstIndex + i].visible = m_showRobotArm;
-            }
+            // same switch as picking "Robot arm" under Showcase
+            bool showRobotArm = m_showcaseItem == 1;
+            if (ImGui::Checkbox("Show robot arm", &showRobotArm))
+                selectShowcaseItem(showRobotArm ? 1 : 0);
             ImGui::Checkbox("Show joint axes", &m_showJointAxes);
             ImGui::Checkbox("Animate", &m_robotArm.animate);
             if (!m_robotArm.animate) {
@@ -649,25 +731,6 @@ private:
             ImGui::SliderFloat("Exposure", &m_exposure, 0.1f, 10.0f, "%.2f", ImGuiSliderFlags_Logarithmic);
             ImGui::Checkbox("Tonemapping (Reinhard)", &m_useTonemapping);
         }
-        if (ImGui::CollapsingHeader("Materials")) {
-            for (size_t i = 0; i < m_objects.size(); ++i) {
-                ImGui::PushID(static_cast<int>(i));
-                if (ImGui::TreeNode(m_objects[i].name.c_str())) {
-                    ImGui::SliderFloat("Roughness", &m_objects[i].roughness, 0.05f, 1.0f);
-                    ImGui::SliderFloat("Metallic", &m_objects[i].metallic, 0.0f, 1.0f);
-                    ImGui::Checkbox("Rim light", &m_objects[i].rim);
-                    ImGui::ColorEdit3("Emissive", glm::value_ptr(m_objects[i].emissive), ImGuiColorEditFlags_HDR | ImGuiColorEditFlags_Float);
-                    ImGui::TreePop();
-                }
-                ImGui::PopID();
-            }
-        }
-        if (ImGui::CollapsingHeader("Objects")) {
-            for (size_t i = 0; i < m_objects.size(); ++i) {
-                if (i != m_cartIndex)
-                    ImGui::Checkbox(m_objects[i].name.c_str(), &m_objects[i].visible);
-            }
-        }
         ImGui::End();
     }
 
@@ -676,7 +739,7 @@ private:
     TopCamera m_topCamera;
     OrbitCamera m_orbitCamera;
     ChaseCamera m_chaseCamera;
-    int m_cameraMode { 0 };
+    int m_cameraMode { 2 };
 
     Shader m_defaultShader;
     Shader m_shadowShader;
@@ -699,13 +762,20 @@ private:
     bool m_usePcf { true };
     int m_pcfRadius { 1 };
 
-    std::vector<GPUMesh> m_planeMesh, m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh;
+    std::vector<GPUMesh> m_cubeMesh, m_sphereMesh, m_cylinderMesh, m_dragonMesh, m_crystalMesh, m_gazeboMesh;
     Texture m_metalAlbedo;
     Texture m_metalRoughness;
     Texture m_metalMetallic;
     Texture m_metalAo;
     Texture m_metalNormal;
     Texture m_skyboxTexture;
+    Texture m_crystalAlbedo;
+    Texture m_crystalMetallic;
+    Texture m_crystalNormal;
+    Texture m_gazeboAlbedo;
+    Texture m_gazeboMetallicSmoothness;
+    Texture m_gazeboAo;
+    Texture m_gazeboNormal;
     bool m_showSkybox { true };
     bool m_useReflections { true };
     std::vector<SceneObject> m_objects;
@@ -719,9 +789,21 @@ private:
     float m_cartSpeed { 0.3f };
     bool m_showPath { true };
 
+    size_t m_gazeboIndex { 0 };
+    size_t m_plinthIndex { 0 };
+    glm::mat4 m_plinthModel { 1.0f };
+    glm::mat4 m_dragonModel { 1.0f };
+    glm::mat4 m_crystalModel { 1.0f };
+    glm::vec3 m_crystalCenter { 0.0f };
+    glm::mat4 m_sphereModel { 1.0f };
+    glm::mat4 m_cubeModel { 1.0f };
+    int m_showcaseItem { 0 };
+    bool m_spinPodium { true };
+    float m_podiumSpinSpeed { 0.4f };
+    float m_podiumAngle { 0.0f };
+
     RobotArm m_robotArm;
     size_t m_robotFirstIndex { 0 };
-    bool m_showRobotArm { true };
     bool m_showJointAxes { false };
 
     bool m_useAlbedoMaps { true };
@@ -729,6 +811,7 @@ private:
     bool m_useMetallicMaps { true };
     bool m_useAoMaps { true };
     bool m_useNormalMaps { true };
+    bool m_useEmissiveMaps { true };
     float m_normalStrength { 1.0f };
     int m_shadingModel { 2 };
     int m_celBands { 3 };
@@ -737,7 +820,7 @@ private:
     float m_specularStrength { 0.5f };
     bool m_useRim { true };
     glm::vec3 m_rimColor { 0.5f };
-    float m_rimSize { 0.25f };
+    float m_rimSize { 0.07f };
     float m_lastFrameTime { 0.0f };
     float m_deltaTime { 0.0f };
     float m_time { 0.0f };
@@ -757,7 +840,7 @@ private:
     glm::vec3 m_inkColor { 0.0f };
     bool m_showEdgeView { false };
 
-    glm::vec3 m_lightDirection { 0.4f, 1.0f, 0.3f };
+    glm::vec3 m_lightDirection { 1.0f, 0.6f, 0.4f };
     glm::vec3 m_lightColor { 1.0f };
     float m_lightIntensity { 3.0f };
     float m_ambientStrength { 0.15f };

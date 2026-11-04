@@ -37,7 +37,7 @@ Group 40 · Bogdan Mocanu · Mihai Santai
 
 ## 2. The demo
 
-Our demo is a small cel-shaded diorama. A gold dragon (the model from the course practicals [1]) sits in the middle, next to four spheres that go from rough to glossy, a cube with a painted-metal texture set, a cylinder and a robot arm, while a glowing cart rides a Bézier track around everything. A sun and two coloured point lights (off at the start) light the scene under a cube-map sky [18]. Everything runs in one application, and every feature can be switched on and off in the **Settings** window.
+Our demo is a small cel-shaded diorama. A gold dragon (the model from the course practicals [1]) sits in the middle, next to four spheres that go from rough to glossy, a cube with a painted-metal texture set, a cylinder and a robot arm, while a glowing cart rides a Bézier track around everything. A sun and two coloured point lights (off at the start) light the scene under a cube-map sky. Everything runs in one application, and every feature can be switched on and off in the **Settings** window.
 
 | Input | Action |
 |---|---|
@@ -291,7 +291,7 @@ When the curve parameter grows at a steady rate, the cart still speeds up on wid
 
 **Tutorials**
 
-[2] J. de Vries. *LearnOpenGL*. https://learnopengl.com. Chapters "Cubemaps", "Normal Mapping", "HDR", "Bloom", "PBR: Theory" and "PBR: Lighting". [TODO Bogdan: keep only the chapters actually used]
+[2] J. de Vries. *LearnOpenGL*. https://learnopengl.com. Chapters "Cubemaps", "Normal Mapping", "HDR", "Bloom", "PBR: Theory" and "PBR: Lighting".
 
 **Papers**
 
@@ -326,5 +326,3 @@ When the curve parameter grows at a steady rate, the cart still speeds up on wid
 **Assets**
 
 [17] ambientCG. *Painted Metal 006* (CC0). https://ambientcg.com/view?id=PaintedMetal006
-
-[18] Skybox: [TODO Bogdan: source and licence of the six cube map images in `resources/skybox/`].

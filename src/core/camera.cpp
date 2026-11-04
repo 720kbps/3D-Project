@@ -6,11 +6,6 @@ DISABLE_WARNINGS_PUSH()
 #include <glm/gtc/quaternion.hpp>
 DISABLE_WARNINGS_POP()
 
-Camera::Camera(Window* pWindow)
-    : Camera(pWindow, glm::vec3(0), glm::vec3(0, 0, -1))
-{
-}
-
 Camera::Camera(Window* pWindow, const glm::vec3& pos, const glm::vec3& forward)
     : m_position(pos)
     , m_forward(glm::normalize(forward))
@@ -21,11 +16,6 @@ Camera::Camera(Window* pWindow, const glm::vec3& pos, const glm::vec3& forward)
 void Camera::setUserInteraction(bool enabled)
 {
     m_userInteraction = enabled;
-}
-
-glm::vec3 Camera::cameraPos() const
-{
-    return m_position;
 }
 
 glm::mat4 Camera::viewMatrix() const
@@ -55,7 +45,6 @@ void Camera::updateInput(float deltaTime)
     constexpr float lookSpeed = 0.0015f;
 
     if (m_userInteraction) {
-        glm::vec3 localMoveDelta { 0 };
         const glm::vec3 right = glm::normalize(glm::cross(m_forward, m_up));
         if (m_pWindow->isKeyPressed(GLFW_KEY_A))
             m_position -= moveSpeed * right;

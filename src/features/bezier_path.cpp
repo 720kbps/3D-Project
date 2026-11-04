@@ -57,6 +57,7 @@ glm::vec3 BezierPath::position(float t) const
     const float u = t - static_cast<float>(segment);
 
     // the 4 control points of this segment
+    // (each anchor's handle points forward on one side and backward on the other, so the track has no kinks)
     const int next = (segment + 1) % count;
     const glm::vec3 p0 = m_anchors[segment];
     const glm::vec3 p1 = m_anchors[segment] + m_handles[segment];
